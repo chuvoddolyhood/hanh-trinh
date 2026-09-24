@@ -1,26 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import * as api from '../lib/api';
-import { formatDate } from '../lib/dates';
-import { moodEmoji, moodLabel } from './moods';
+import Icon from './icons';
+import Polaroid from './Polaroid';
+import { usePhotoUrls } from '../hooks/usePhotoUrls';
+import { formatDateLong, toDateStr } from '../lib/dates';
+import { formatDistance } from '../lib/geo';
+import { weatherKind, weatherWord } from '../lib/weather';
+import { moodLabel } from './moods';
 
-// Chi tiết một địa điểm: ảnh, nhật ký, thời tiết, thao tác xoá
-export default function PlaceDetail({ place, onBack, onDeleted, onFocus, onTagClick }) {
-  const [urls, setUrls] = useState({});
+const TILTS = [-4, 2, 5];
+
+// Chi tiết một địa điểm: quả cầu aura theo thời tiết, chỉ số, ảnh polaroid, ghi chú, tag
+export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOnMap, onTagClick }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
-
-  // Lấy signed URL cho ảnh mỗi khi đổi địa điểm
-  useEffect(() => {
-    let alive = true;
-    const paths = place.photos.map((p) => p.storage_path);
-    setUrls({});
-    if (paths.length) {
-      api.getPhotoUrls(paths)
-        .then((map) => alive && setUrls(map))
-        .catch((e) => alive && setError(`Không tải được ảnh: ${e.message}`));
-    }
-    return () => { alive = false; };
-  }, [place]);
+  const urls = usePhotoUrls(place.photos.map((p) => p.storage_path));
 
   async function handleDelete() {
     if (!window.confirm(`Xoá "${place.name}" cùng toàn bộ ảnh? Không thể hoàn tác.`)) return;
@@ -35,56 +29,73 @@ export default function PlaceDetail({ place, onBack, onDeleted, onFocus, onTagCl
   }
 
   const w = place.weather;
+  const visited = place.kind === 'visited';
+  // Quãng đường đi bộ trong ngày đến nơi này
+  const walked = tracks
+    .filter((t) => t.started_at && toDateStr(new Date(t.started_at)) === place.visited_at)
+    .reduce((sum, t) => sum + (t.distance_m || 0), 0);
 
   return (
-    <article className="detail stack">
-      <button className="btn-link back" onClick={onBack}>‹ Nhật ký</button>
-
-      <header>
-        <h2 className="detail-title">{place.name}</h2>
-        <p className="detail-meta">
-          {place.kind === 'wishlist' ? 'Muốn đến' : formatDate(place.visited_at)}
-          {place.mood && ` — ${moodEmoji(place.mood)} ${moodLabel(place.mood)}`}
-        </p>
-        {w && (
-          <p className="weather">
-            {w.text}
-            {w.tmin != null && w.tmax != null && `, ${Math.round(w.tmin)}–${Math.round(w.tmax)}°C`}
-          </p>
-        )}
-      </header>
-
-      {place.photos.length > 0 && (
-        <div className="photo-grid">
-          {place.photos.map((p) =>
-            urls[p.storage_path] ? (
-              <a key={p.id} href={urls[p.storage_path]} target="_blank" rel="noreferrer">
-                <img src={urls[p.storage_path]} alt={`Ảnh tại ${place.name}`} loading="lazy" />
-              </a>
-            ) : (
-              <div key={p.id} className="photo-placeholder" aria-hidden="true" />
-            ),
-          )}
-        </div>
-      )}
-
-      {place.note && <p className="note">{place.note}</p>}
-
-      {place.tags.length > 0 && (
-        <div className="tags">
-          {place.tags.map((t) => (
-            <button key={t} className="tag" onClick={() => onTagClick(t)}>#{t}</button>
-          ))}
-        </div>
-      )}
-
-      {error && <p className="error">{error}</p>}
-
-      <div className="row">
-        <button className="btn" onClick={() => onFocus({ lng: place.lng, lat: place.lat, zoom: 16 })}>
-          Xem trên bản đồ
+    <article className="screen detail">
+      <div className="top-bar">
+        <button className="round-btn" onClick={onBack} aria-label="Quay lại">
+          <Icon name="back" size={20} strokeWidth={2} />
         </button>
-        <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+        <button className="round-btn" onClick={onShowOnMap} aria-label="Xem trên bản đồ">
+          <Icon name="map" size={20} />
+        </button>
+      </div>
+
+      <div className="detail-sky">
+        {w?.tmax != null && <div className="detail-temp">{Math.round(w.tmax)}<span>°C</span></div>}
+        {w && <div className="detail-vword" aria-hidden="true">{weatherWord(w.code)}</div>}
+        <div className={`orb orb-${weatherKind(w?.code)}`} aria-hidden="true" />
+        <div className="horizon" aria-hidden="true" />
+      </div>
+
+      <div className="screen-inner detail-body">
+        <header className="stack-xs">
+          <h1 className="detail-name">{place.name}</h1>
+          <span className="muted">{visited ? formatDateLong(place.visited_at) : 'Muốn đến'}</span>
+        </header>
+
+        {visited && (
+          <dl className="stat-row stat-row-text">
+            <div>
+              <dt>THỜI TIẾT</dt>
+              <dd>
+                {w ? w.text : '—'}
+                {w?.tmin != null && w?.tmax != null && `, ${Math.round(w.tmin)}–${Math.round(w.tmax)}°`}
+              </dd>
+            </div>
+            <div><dt>CẢM XÚC</dt><dd>{moodLabel(place.mood) || '—'}</dd></div>
+            <div><dt>ĐI BỘ</dt><dd>{walked ? formatDistance(walked) : '—'}</dd></div>
+          </dl>
+        )}
+
+        {place.photos.length > 0 && (
+          <div className="detail-photos">
+            {place.photos.map((p, i) => (
+              <a key={p.id} href={urls[p.storage_path]} target="_blank" rel="noreferrer" aria-label={`Mở ảnh ${i + 1}`}>
+                <Polaroid src={urls[p.storage_path]} alt={`Ảnh tại ${place.name}`} tilt={TILTS[i % 3]} />
+              </a>
+            ))}
+          </div>
+        )}
+
+        {place.note && <p className="note">{place.note}</p>}
+
+        {place.tags.length > 0 && (
+          <div className="tags">
+            {place.tags.map((t) => (
+              <button key={t} className="tag" onClick={() => onTagClick(t)}>#{t}</button>
+            ))}
+          </div>
+        )}
+
+        {error && <p className="error">{error}</p>}
+
+        <button className="btn-link danger" onClick={handleDelete} disabled={deleting}>
           {deleting ? 'Đang xoá…' : 'Xoá địa điểm'}
         </button>
       </div>

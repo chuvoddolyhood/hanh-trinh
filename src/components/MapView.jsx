@@ -2,17 +2,42 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import Icon from './icons';
+
 // Bản đồ nền vector miễn phí, không cần API key (ghi nguồn tự động qua MapLibre)
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+const STYLE_URL = {
+  light: 'https://tiles.openfreemap.org/styles/liberty',
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+};
 const EMPTY = { type: 'FeatureCollection', features: [] };
 
-// Màu khớp với token trong styles.css
-const C = {
-  ink: '#1D2B3A',
-  visited: '#0E8A7E',
-  wishlist: '#E3A21A',
-  route: '#D6336C',
+// Màu khớp với token trong styles.css (docs/DESIGN.md)
+const COLORS = {
+  light: { ink: '#1E1B18', surface: '#FFFDF9', accent: '#F26B1D', wishlist: '#7B61FF', route: '#F0508A' },
+  dark: { ink: '#F4F1EC', surface: '#33363B', accent: '#FF8A3D', wishlist: '#9B8CFF', route: '#FF4D8D' },
 };
+
+// Chỉnh màu style Liberty cho khớp bảng "Bản đồ nền" trong DESIGN.md
+const road = (kind) => ['road', 'bridge', 'tunnel'].map((p) => `${p}_${kind}`);
+const LIGHT_PAINT = [
+  [['background'], 'background-color', '#F4EADF'],
+  [['building'], 'fill-color', '#EEE0CF'],
+  [['building'], 'fill-outline-color', '#E3D2BD'],
+  [['water'], 'fill-color', '#C9DDDA'],
+  [['waterway_river', 'waterway_other', 'waterway_tunnel'], 'line-color', '#BCD4D1'],
+  [['park', 'landcover_wood', 'landcover_grass'], 'fill-color', '#DCE3C3'],
+  [[...road('minor'), ...road('link'), ...road('service_track'), ...road('secondary_tertiary'), 'bridge_street'], 'line-color', '#FFFFFF'],
+  [[...road('minor_casing'), ...road('link_casing'), ...road('service_track_casing'), ...road('secondary_tertiary_casing'), 'bridge_street_casing', 'tunnel_street_casing'], 'line-color', '#E8DCCB'],
+  [[...road('trunk_primary'), ...road('motorway'), ...road('motorway_link')], 'line-color', '#F8DDB0'],
+  [[...road('trunk_primary_casing'), ...road('motorway_casing'), ...road('motorway_link_casing')], 'line-color', '#E6D3BC'],
+  [['label_other', 'label_village', 'label_town', 'poi_r1', 'poi_r7', 'poi_r20', 'poi_transit', 'highway-name-path', 'highway-name-minor', 'highway-name-major'], 'text-color', '#8A7F73'],
+];
+
+function tintLiberty(map) {
+  for (const [ids, prop, color] of LIGHT_PAINT) {
+    for (const id of ids) if (map.getLayer(id)) map.setPaintProperty(id, prop, color);
+  }
+}
 
 const placesToGeoJSON = (places) => ({
   type: 'FeatureCollection',
@@ -39,7 +64,9 @@ const linesToGeoJSON = (lines) => ({
  * - places, tracks, livePoints: dữ liệu hiển thị
  * - selectedId: id địa điểm đang chọn (vẽ vòng nổi bật)
  * - draft: {lat, lng} ghim nháp khi check-in (kéo thả được)
- * - focus: {lng, lat, zoom} hoặc {bounds}; đổi object để kích hoạt di chuyển camera
+ * - focus: {lng, lat, zoom} hoặc {bounds}, kèm padding tuỳ chọn; đổi object để kích hoạt di chuyển camera
+ * - dark: dùng style tối (đổi giá trị thì cha phải remount bằng key)
+ * - showLocate: hiện nút "Vị trí của tôi"; onLocate({lat, lng}) khi có vị trí
  * - onMapClick(lngLat), onSelectPlace(id), onDraftMove(lngLat)
  */
 export default function MapView({
@@ -52,37 +79,49 @@ export default function MapView({
   onMapClick,
   onSelectPlace,
   onDraftMove,
+  dark = false,
+  showLocate = false,
+  onLocate,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const draftMarkerRef = useRef(null);
+  const geolocateRef = useRef(null);
   const [ready, setReady] = useState(false);
 
   // Giữ handler mới nhất trong ref để listener của map (đăng ký 1 lần) luôn gọi đúng hàm
   const handlers = useRef({});
-  handlers.current = { onMapClick, onSelectPlace, onDraftMove };
+  handlers.current = { onMapClick, onSelectPlace, onDraftMove, onLocate };
 
   // ---------------- Khởi tạo bản đồ (chạy 1 lần) ----------------
   useEffect(() => {
+    const C = COLORS[dark ? 'dark' : 'light'];
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLE_URL,
+      style: STYLE_URL[dark ? 'dark' : 'light'],
       center: [106.0, 16.0], // Trung tâm Việt Nam
       zoom: 4.8,
+      attributionControl: false,
     });
     mapRef.current = map;
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
-    map.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-      }),
-      'top-right',
-    );
-    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    // Ghi nguồn bắt buộc của OpenFreeMap/OSM; đặt dưới thanh tìm kiếm để không bị thẻ và thanh tab che
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'top-left');
+
+    // Nút định vị gốc bị ẩn bằng CSS; nút của app gọi trigger()
+    const geolocate = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true,
+    });
+    geolocate.on('geolocate', (pos) => {
+      handlers.current.onLocate?.({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    });
+    map.addControl(geolocate, 'top-right');
+    geolocateRef.current = geolocate;
 
     map.on('load', () => {
+      if (!dark) tintLiberty(map);
+
       // Nguồn dữ liệu
       map.addSource('places', {
         type: 'geojson',
@@ -103,7 +142,7 @@ export default function MapView({
         paint: {
           'line-color': C.route,
           'line-width': ['interpolate', ['linear'], ['zoom'], 5, 2, 16, 5],
-          'line-opacity': 0.8,
+          'line-opacity': 0.85,
         },
       });
 
@@ -113,7 +152,7 @@ export default function MapView({
         type: 'line',
         source: 'live',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#FFFFFF', 'line-width': 9 },
+        paint: { 'line-color': '#FFFFFF', 'line-width': 10 },
       });
       map.addLayer({
         id: 'live-line',
@@ -131,9 +170,9 @@ export default function MapView({
         filter: ['has', 'point_count'],
         paint: {
           'circle-color': C.ink,
-          'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 50, 26],
+          'circle-radius': ['step', ['get', 'point_count'], 19, 10, 22, 50, 27],
           'circle-stroke-width': 3,
-          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-color': C.surface,
         },
       });
       map.addLayer({
@@ -146,7 +185,20 @@ export default function MapView({
           'text-font': ['Noto Sans Bold'],
           'text-size': 13,
         },
-        paint: { 'text-color': '#FFFFFF' },
+        paint: { 'text-color': C.surface },
+      });
+
+      // Quầng quanh điểm đang chọn (vẽ dưới điểm)
+      map.addLayer({
+        id: 'place-selected',
+        type: 'circle',
+        source: 'places',
+        filter: ['==', ['get', 'id'], ''],
+        paint: {
+          'circle-radius': 22,
+          'circle-color': ['match', ['get', 'kind'], 'wishlist', C.wishlist, C.accent],
+          'circle-opacity': 0.18,
+        },
       });
 
       // Điểm lẻ: đã đến = chấm đặc; wishlist = vòng rỗng
@@ -156,10 +208,10 @@ export default function MapView({
         source: 'places',
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-radius': 8,
-          'circle-color': ['match', ['get', 'kind'], 'wishlist', '#FFFFFF', C.visited],
+          'circle-radius': 9,
+          'circle-color': ['match', ['get', 'kind'], 'wishlist', C.surface, C.accent],
           'circle-stroke-width': 3,
-          'circle-stroke-color': ['match', ['get', 'kind'], 'wishlist', C.wishlist, '#FFFFFF'],
+          'circle-stroke-color': ['match', ['get', 'kind'], 'wishlist', C.wishlist, C.surface],
         },
       });
 
@@ -178,21 +230,7 @@ export default function MapView({
           'text-anchor': 'top',
           'text-max-width': 10,
         },
-        paint: { 'text-color': C.ink, 'text-halo-color': '#FFFFFF', 'text-halo-width': 1.5 },
-      });
-
-      // Vòng nổi bật quanh điểm đang chọn
-      map.addLayer({
-        id: 'place-selected',
-        type: 'circle',
-        source: 'places',
-        filter: ['==', ['get', 'id'], ''],
-        paint: {
-          'circle-radius': 15,
-          'circle-color': 'rgba(0,0,0,0)',
-          'circle-stroke-width': 3,
-          'circle-stroke-color': C.route,
-        },
+        paint: { 'text-color': C.ink, 'text-halo-color': C.surface, 'text-halo-width': 1.5 },
       });
 
       // Bấm cụm → phóng to vào cụm
@@ -226,6 +264,8 @@ export default function MapView({
       map.remove();
       mapRef.current = null;
     };
+    // Chạy 1 lần; đổi dark thì cha remount component bằng key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---------------- Đồng bộ dữ liệu vào nguồn ----------------
@@ -283,6 +323,8 @@ export default function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focus) return;
+    // Padding lưu trong camera nên luôn đặt lại (vd. chừa chỗ cho tấm Check-in)
+    map.setPadding({ top: 0, left: 0, right: 0, bottom: 0, ...focus.padding });
     if (focus.bounds) {
       map.fitBounds(focus.bounds, { padding: 64, maxZoom: 16, duration: 900 });
     } else {
@@ -290,5 +332,14 @@ export default function MapView({
     }
   }, [focus]);
 
-  return <div ref={containerRef} className="map" />;
+  return (
+    <>
+      <div ref={containerRef} className="map" />
+      {showLocate && (
+        <button className="map-btn map-locate" aria-label="Vị trí của tôi" onClick={() => geolocateRef.current?.trigger()}>
+          <Icon name="locate" size={22} />
+        </button>
+      )}
+    </>
+  );
 }

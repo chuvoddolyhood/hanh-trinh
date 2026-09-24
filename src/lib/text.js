@@ -22,3 +22,11 @@ export function parseTags(input) {
   }
   return tags;
 }
+
+// Địa điểm có khớp chuỗi tìm kiếm không: "#tag" tìm theo tag, còn lại tìm trong tên, ghi chú, tag (không dấu)
+export function matchPlace(place, query) {
+  const q = normalizeVi(query);
+  if (!q) return true;
+  if (q.startsWith('#')) return place.tags.some((t) => normalizeVi(t).startsWith(q.slice(1)));
+  return normalizeVi([place.name, place.note, ...place.tags].join(' ')).includes(q);
+}

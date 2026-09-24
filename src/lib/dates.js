@@ -16,8 +16,28 @@ export function formatDate(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-// "YYYY-MM" → "Tháng 9, 2026"
-export function formatMonth(monthKey) {
-  const [y, m] = monthKey.split('-');
-  return `Tháng ${Number(m)}, ${y}`;
+const WEEKDAYS = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+// "YYYY-MM-DD" → "Thứ Tư, 12/08/2026"
+export function formatDateLong(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return `${WEEKDAYS[new Date(y, m - 1, d).getDay()]}, ${formatDate(dateStr)}`;
+}
+
+// Buổi trong ngày theo giờ: dùng cho nhãn "ĐI BỘ BUỔI CHIỀU"
+export function partOfDay(date) {
+  const h = date.getHours();
+  if (h < 11) return 'buổi sáng';
+  if (h < 14) return 'buổi trưa';
+  if (h < 18) return 'buổi chiều';
+  return 'buổi tối';
+}
+
+// Mùa theo tháng (tháng 1 → vị trí 0)
+const SEASONS = ['đông', 'xuân', 'xuân', 'xuân', 'hè', 'hè', 'hè', 'thu', 'thu', 'thu', 'đông', 'đông'];
+
+// "mùa hè 2026" theo tháng hiện tại
+export function seasonLabel(date = new Date()) {
+  return `mùa ${SEASONS[date.getMonth()]} ${date.getFullYear()}`;
 }

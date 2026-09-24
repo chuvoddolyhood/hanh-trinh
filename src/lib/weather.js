@@ -49,3 +49,34 @@ export async function fetchDailyWeather(lat, lng, dateStr) {
     tmin: daily.temperature_2m_min?.[0] ?? null,
   };
 }
+
+// Thời tiết hiện tại tại một vị trí → { code, temp } hoặc null
+export async function fetchCurrentWeather(lat, lng) {
+  const params = new URLSearchParams({
+    latitude: lat.toFixed(4),
+    longitude: lng.toFixed(4),
+    current: 'temperature_2m,weather_code',
+  });
+  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+  if (!res.ok) return null;
+  const cur = (await res.json())?.current;
+  return cur?.weather_code == null ? null : { code: cur.weather_code, temp: cur.temperature_2m };
+}
+
+// Nhóm mã WMO theo bảng màu quả cầu aura trong DESIGN.md
+export function weatherKind(code) {
+  if (code == null) return 'cloud';
+  if (code <= 1) return 'clear';
+  if (code >= 95) return 'storm';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
+  return 'cloud';
+}
+
+// Một từ ngắn cho thời tiết: "Nắng", "Mây", "Mưa"...
+export function weatherWord(code) {
+  if (code == null) return '';
+  if (code >= 71 && code <= 77) return 'Tuyết';
+  if (code === 85 || code === 86) return 'Tuyết';
+  if (code === 45 || code === 48) return 'Sương';
+  return { clear: 'Nắng', cloud: 'Mây', rain: 'Mưa', storm: 'Dông' }[weatherKind(code)];
+}

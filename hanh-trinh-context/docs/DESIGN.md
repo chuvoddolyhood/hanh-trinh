@@ -101,6 +101,6 @@ Dark mode: style `dark` của OpenFreeMap (chưa hoàn thiện, cần chỉnh th
 | Ghi lộ trình (sáng/tối) | `docs/design/GhiLoTrinh.dc.html` | Đã thiết kế |
 | Chuyến đi, Tôi, Check-in | — | Chưa thiết kế |
 
-Chờ xác nhận: "Mục tiêu hôm nay" và nút "Tạm dừng" trên màn hình Ghi lộ trình, tab "Tôi".
+Đã chốt: màn hình Ghi lộ trình có "Tạm dừng" và "Mục tiêu hôm nay" (mặc định 5 km, chỉnh ở tab Tôi, lưu trên máy). Tab Chuyến đi tạm hiện "Sắp có"; tab Tôi gồm giao diện sáng/tối, mục tiêu, lộ trình đã lưu, nhập GPX, đăng xuất (chưa có mẫu thiết kế). Ô "Tỉnh, thành" hiện "—" cho tới khi có dữ liệu ranh giới tỉnh.
 
 Lưu ý khi đọc file `.dc.html`: cú pháp `{{...}}`, `<x-dc>`, `<sc-if>`, `<dc-import>` là của công cụ thiết kế, không phải React. Chỉ lấy bố cục, màu, kích thước; dữ liệu trong mẫu (Hội An, 3,42 km...) là ví dụ.

@@ -8,9 +8,9 @@ Web nhật ký du lịch trên bản đồ, tối ưu cho điện thoại: check
 
 ## Tài liệu dự án
 
-- Kế hoạch, kiến trúc, danh sách tính năng và trạng thái: `docs/PLAN.md`. Đọc trước khi làm tính năng mới; cập nhật cột Trạng thái khi xong.
-- Hệ thống thiết kế (màu, chữ, thành phần, màn hình): @docs/DESIGN.md
-- Mẫu giao diện gốc: `docs/design/*.dc.html` (bản tối: `*Toi.dc.html`). Chỉ dùng làm tham khảo bố cục và kích thước; cú pháp `{{...}}`, `<x-dc>`, `<sc-if>`, `<dc-import>` không phải React.
+- Kế hoạch, kiến trúc, danh sách tính năng và trạng thái: `hanh-trinh-context/docs/PLAN.md`. Đọc trước khi làm tính năng mới; cập nhật cột Trạng thái khi xong.
+- Hệ thống thiết kế (màu, chữ, thành phần, màn hình): @hanh-trinh-context/docs/DESIGN.md
+- Mẫu giao diện gốc: `hanh-trinh-context/docs/design/*.dc.html` (bản tối: `*Toi.dc.html`). Chỉ dùng làm tham khảo bố cục và kích thước; cú pháp `{{...}}`, `<x-dc>`, `<sc-if>`, `<dc-import>` không phải React.
 - `README.md`: cách dựng Supabase (chạy `supabase/schema.sql` trong SQL Editor, cấu hình Redirect URLs) và các giới hạn đã biết (GPS cần HTTPS, HEIC, Supabase Free tạm dừng sau 7 ngày).
 
 ## Stack
@@ -29,7 +29,7 @@ Chưa có lint hay test; kiểm tra bằng `npm run build` và chạy thử trê
 
 - Comment trong code viết bằng tiếng Việt; toàn bộ chữ trên giao diện bằng tiếng Việt.
 - Không dùng thư viện hay API không tồn tại; kiểm tra tài liệu chính thức khi không chắc.
-- Chỉ dùng dịch vụ miễn phí đã chốt trong `docs/PLAN.md`; hỏi trước khi thêm dịch vụ mới.
+- Chỉ dùng dịch vụ miễn phí đã chốt trong `PLAN.md`; hỏi trước khi thêm dịch vụ mới.
 - Mọi bảng mới phải bật RLS; cập nhật `supabase/schema.sql` khi đổi schema (file phải chạy lại được nhiều lần: `if not exists`, `drop policy if exists`).
 - Ảnh luôn được nén và xoá EXIF trước khi upload (`src/lib/photo.js`).
 - Nominatim: tối đa 1 request/giây, không gọi theo từng phím gõ (`src/lib/geocode.js`).
@@ -43,8 +43,9 @@ Chưa có lint hay test; kiểm tra bằng `npm run build` và chạy thử trê
 - **Lộ trình:** `points` là jsonb dạng `[[lng, lat, epochMs|null], ...]`, dùng chung cho ghi trực tiếp (`source: 'live'`) và nhập GPX (`'gpx'`). `useTracker` được gọi ở `Workspace` để vẫn ghi khi đổi tab; lọc điểm theo độ chính xác/tốc độ/khoảng cách, giữ màn hình sáng (Wake Lock) và lưu tạm vào `localStorage` (`hanh-trinh:unsaved-track`) để khôi phục khi tải lại trang.
 - **Bản đồ:** `MapView.jsx` tạo một instance MapLibre với style Liberty của OpenFreeMap, cập nhật dữ liệu qua các GeoJSON source `places` (có cluster), `tracks`, `live`, và điều khiển camera qua prop `focus`.
 - **Địa điểm** có `kind` là `visited` hoặc `wishlist`; wishlist không có `visited_at`, `mood`. Cột `visibility` đã có trong schema cho tính năng chia sẻ sau này.
-- **Giao diện hiện tại** vẫn là panel bên + 3 tab (Nhật ký, Check-in, Lộ trình), chưa chuyển sang thanh tab 5 mục theo `docs/DESIGN.md`.
+- **Giao diện:** không có router. `MapView` luôn được mount và nằm dưới cùng; các màn hình (`.screen`: Nhật ký, Chi tiết, Ghi lộ trình, Tôi) phủ lên trên, điều khiển bằng state `tab`, `detailId`, `recordOpen`, `checkin` trong `Workspace`. Check-in là tấm dưới trên bản đồ. Đổi sáng/tối thì remount `MapView` bằng `key` (style `liberty` được chỉnh màu hoặc style `dark`).
+- **Dark mode:** `App` đặt `data-theme` trên `<html>`; mọi màu là biến CSS trong `src/styles.css`. Màu trên bản đồ (layer MapLibre) nằm riêng trong `COLORS` của `MapView.jsx`, phải giữ khớp với biến CSS.
 
 ## Thư mục không thuộc mã nguồn
 
-`NO/` (cache npm) và `hanh-trinh-context/` (bản sao cũ của CLAUDE.md và docs) không phải mã nguồn; không sửa, và không commit `NO/`.
+`NO/` là cache npm, không commit. `hanh-trinh-context/CLAUDE.md` là bản sao cũ, đừng sửa; tài liệu thật nằm ở `hanh-trinh-context/docs/`.

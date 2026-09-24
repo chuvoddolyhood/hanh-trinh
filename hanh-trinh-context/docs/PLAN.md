@@ -19,7 +19,7 @@ SPA React chạy hoàn toàn trên trình duyệt, gọi thẳng Supabase và c�
 flowchart TD
   A["Ứng dụng React (Vite)<br/>trình duyệt, host Vercel"]
   subgraph S["Supabase"]
-    AU["Auth<br/>link đăng nhập qua email"]
+    AU["Auth<br/>email + mật khẩu"]
     DB["Postgres + PostGIS<br/>RLS"]
     ST["Storage<br/>bucket ảnh riêng tư"]
   end
@@ -77,7 +77,7 @@ flowchart TD
 
 | # | Nhóm | Tính năng | Giai đoạn | Trạng thái |
 | --- | --- | --- | --- | --- |
-| 1 | Nền tảng | Đăng nhập bằng link gửi qua email | 1 | Đã xong |
+| 1 | Nền tảng | Đăng nhập bằng email + mật khẩu (link qua email khi quên mật khẩu, đặt lại ở tab Tôi) | 1 | Đã xong |
 | 2 | Nền tảng | Phân quyền RLS, bucket ảnh riêng tư | 1 | Đã xong |
 | 3 | Bản đồ | Bản đồ vector, gom cụm điểm, tên địa điểm khi phóng to | 1 | Đã xong |
 | 4 | Check-in | Ghim bằng cách chạm bản đồ, kéo thả để chỉnh vị trí | 1 | Đã xong |
@@ -134,6 +134,6 @@ flowchart TD
 - [ ] Tạo project Supabase, chạy `supabase/schema.sql`, cấu hình Site URL
 - [ ] `npm install`, chạy local, sửa lỗi build nếu có
 - [ ] Deploy Vercel để có HTTPS, thử ghi GPS trên Android và iPhone
-- [ ] Áp dụng thiết kế mới (docs/DESIGN.md): thanh tab dưới, mỗi tab một màn hình, dark mode
+- [x] Áp dụng thiết kế mới (docs/DESIGN.md): thanh tab dưới, mỗi tab một màn hình, dark mode
 - [ ] Làm tiếp: sửa check-in và thêm ảnh vào địa điểm đã có
 - [ ] Làm tiếp: chuyến đi và link chia sẻ

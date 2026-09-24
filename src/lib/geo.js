@@ -56,7 +56,14 @@ export function bounds(points) {
 // Định dạng khoảng cách cho người đọc
 export function formatDistance(m) {
   if (m < 1000) return `${Math.round(m)} m`;
-  return `${(m / 1000).toFixed(m < 10000 ? 2 : 1)} km`;
+  return `${(m / 1000).toFixed(m < 10000 ? 2 : 1).replace('.', ',')} km`;
+}
+
+// Tốc độ trung bình dạng phút/km: 12'22"
+export function formatPace(ms, m) {
+  if (m < 50) return '—';
+  const sec = Math.round(ms / 1000 / (m / 1000));
+  return `${Math.floor(sec / 60)}'${String(sec % 60).padStart(2, '0')}"`;
 }
 
 // Định dạng thời lượng (ms) thành "1 giờ 05 phút" hoặc "12:34"
