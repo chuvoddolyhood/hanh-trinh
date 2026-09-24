@@ -1,0 +1,456 @@
+/* =====================================================================
+   Token thiết kế
+   Ý tưởng: bản đồ là nhân vật chính; panel là "sổ tay thực địa" gọn, sáng.
+   Màu hồng đậm (route) chỉ dành cho lộ trình và nút ghi — điểm nhấn duy nhất.
+   ===================================================================== */
+:root {
+  --ink: #1D2B3A;         /* chữ chính, cụm điểm */
+  --ink-soft: #52637A;    /* chữ phụ */
+  --paper: #F2F4F6;       /* nền panel */
+  --surface: #FFFFFF;     /* ô nhập, thẻ */
+  --line: #D6DDE4;        /* đường kẻ */
+  --visited: #0E8A7E;     /* nơi đã đến, nút chính */
+  --wishlist: #E3A21A;    /* nơi muốn đến */
+  --route: #D6336C;       /* lộ trình, ghi GPS */
+  --danger: #B42318;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --font: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  box-sizing: border-box;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+*, *::before, *::after { box-sizing: inherit; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--paper); -webkit-font-smoothing: antialiased; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--visited); outline-offset: 2px; }
+
+/* =====================================================================
+   Bố cục: panel trái + bản đồ phải; mobile: bản đồ trên, panel dưới
+   ===================================================================== */
+.app {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) 1fr;
+  height: 100%;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--paper);
+  border-right: 1px solid var(--line);
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: max(16px, env(safe-area-inset-top)) 20px 8px;
+}
+
+.brand {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px max(32px, env(safe-area-inset-bottom));
+}
+
+.map-wrap { position: relative; min-height: 0; }
+.map { position: absolute; inset: 0; }
+
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 45% 55%; }
+  .map-wrap { grid-row: 1; }
+  .panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+}
+
+/* =====================================================================
+   Tabs
+   ===================================================================== */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs button {
+  position: relative;
+  padding: 10px 8px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.rec-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--route);
+  vertical-align: middle;
+}
+
+/* =====================================================================
+   Thành phần chung
+   ===================================================================== */
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.stack-sm { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+legend, .field > span, .section-title {
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: 0.87rem;
+  font-weight: 600;
+}
+.section-title { font-size: 1rem; }
+
+.field { display: flex; flex-direction: column; }
+
+input:not([type='file']), select, textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+textarea { resize: vertical; }
+
+.help { margin: 0; color: var(--ink-soft); font-size: 0.87rem; }
+.error { margin: 0; color: var(--danger); font-size: 0.87rem; }
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--visited);
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+.empty { margin: 0; color: var(--ink-soft); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-weight: 500;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn-primary { background: var(--visited); border-color: var(--visited); color: #FFFFFF; }
+.btn-danger { color: var(--danger); }
+.file-btn { align-self: flex-start; }
+
+.btn-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 0.87rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.back { align-self: flex-start; text-decoration: none; }
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+/* Công tắc 2 lựa chọn */
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: #E3E8ED;
+}
+.segmented button {
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+.segmented button[aria-checked='true'] { background: var(--surface); box-shadow: 0 1px 2px rgba(29, 43, 58, 0.12); }
+
+/* =====================================================================
+   Nhật ký
+   ===================================================================== */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.stats div { padding: 12px 0; }
+.stats div + div { padding-left: 12px; border-left: 1px solid var(--line); }
+.stats dt { color: var(--ink-soft); font-size: 0.8rem; }
+.stats dd { margin: 0; font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.filters { display: flex; flex-direction: column; gap: 8px; }
+.filter-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.filters .btn-link { align-self: flex-start; }
+
+.month-title { margin: 0 0 6px; font-size: 0.9rem; font-weight: 600; color: var(--ink-soft); }
+.entries, .tracks, .results, .thumbs { margin: 0; padding: 0; list-style: none; }
+
+/* Mỗi mục nhật ký có vạch màu bên trái theo loại, như đánh dấu trong sổ tay */
+.entry {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 10px 0 10px 14px;
+  border: 0;
+  border-left: 3px solid var(--visited);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.entry + .entry, .entries li + li .entry { margin-top: 2px; }
+.entry-wishlist { border-left-color: var(--wishlist); }
+.entry:hover .entry-name { text-decoration: underline; text-underline-offset: 3px; }
+.entry-name { font-weight: 600; }
+.entry-meta { color: var(--ink-soft); font-size: 0.85rem; }
+.entry-tags { color: var(--visited); font-size: 0.85rem; }
+
+/* =====================================================================
+   Chi tiết địa điểm
+   ===================================================================== */
+.detail-title { margin: 0; font-size: 1.5rem; line-height: 1.25; letter-spacing: -0.01em; }
+.detail-meta { margin: 4px 0 0; color: var(--ink-soft); }
+.weather { margin: 2px 0 0; color: var(--ink-soft); font-size: 0.9rem; }
+.note { margin: 0; white-space: pre-wrap; max-width: 65ch; }
+
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 4px; }
+.photo-grid img, .photo-placeholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #E3E8ED;
+}
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--visited);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* =====================================================================
+   Check-in
+   ===================================================================== */
+.search-row { display: flex; gap: 6px; }
+.results { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.results li + li { border-top: 1px solid var(--line); }
+.results button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.results span { color: var(--ink-soft); font-size: 0.8rem; }
+
+.moods { display: flex; flex-wrap: wrap; gap: 6px; }
+.moods button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.moods button[aria-pressed='true'] { border-color: var(--ink); background: var(--ink); color: #FFFFFF; }
+
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.thumbs li { position: relative; }
+.thumbs img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; background: #E3E8ED; }
+.thumbs button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(29, 43, 58, 0.75);
+  color: #FFFFFF;
+  line-height: 1;
+  cursor: pointer;
+}
+.thumb-gps {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--visited);
+  color: #FFFFFF;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+/* Ghim nháp trên bản đồ: hình giọt nước, kéo thả được */
+.draft-pin {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #FFFFFF;
+  border-radius: 50% 50% 50% 0;
+  background: var(--visited);
+  box-shadow: 0 2px 6px rgba(29, 43, 58, 0.35);
+  transform: rotate(-45deg) translate(4px, -4px);
+  cursor: grab;
+}
+
+.map-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #FFFFFF;
+  font-size: 0.87rem;
+  pointer-events: none;
+}
+
+/* =====================================================================
+   Ghi lộ trình — điểm nhấn của giao diện
+   ===================================================================== */
+.recorder {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.recorder.is-recording { border-color: var(--route); }
+
+.recorder-readout { display: grid; grid-template-columns: 1fr 1fr; }
+.readout-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.readout-label { color: var(--ink-soft); font-size: 0.8rem; }
+
+.record-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--route);
+  color: #FFFFFF;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.record-btn.is-stop { background: var(--ink); }
+.record-dot { width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; }
+.record-square { width: 12px; height: 12px; border-radius: 2px; background: var(--route); }
+
+/* Nhịp đập nhẹ trên nút Dừng cho biết GPS đang ghi */
+.recorder.is-recording .record-btn::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--route);
+  border-radius: inherit;
+  animation: pulse 1.6s ease-out infinite;
+}
+@keyframes pulse {
+  from { opacity: 0.8; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recorder.is-recording .record-btn::after { animation: none; opacity: 0.6; }
+}
+
+.track { display: flex; align-items: center; gap: 4px; border-left: 3px solid var(--route); }
+.track + .track { margin-top: 2px; }
+.track-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 10px 0 10px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* =====================================================================
+   Đăng nhập, màn hình chờ
+   ===================================================================== */
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px 28px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border-top: 4px solid var(--route);
+}
+.auth-lead { color: var(--ink-soft); margin: 8px 0 24px; }
+.splash { display: grid; place-items: center; height: 100%; color: var(--ink-soft); }
+code { padding: 1px 5px; border-radius: 4px; background: #E3E8ED; font-size: 0.9em; }

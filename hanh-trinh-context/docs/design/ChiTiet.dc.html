@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Chi tiết địa điểm</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Playfair+Display:ital,wght@0,400;0,600;1,400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a:hover{opacity:.85}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: {{t.bg}}; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: {{t.ink}}">
+
+<div style="position: absolute; top: 16px; left: 12px; right: 12px; display: flex; justify-content: space-between">
+<a href="NhatKy.dc.html" aria-label="Quay lại nhật ký" style="width: 44px; height: 44px; border-radius: 22px; background: {{t.chip}}; display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{t.ink}}" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<button aria-label="Chia sẻ" style="width: 44px; height: 44px; border: 0; border-radius: 22px; background: {{t.chip}}; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{t.ink}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"></path><path d="M5 13v7h14v-7"></path></svg>
+</button>
+</div>
+
+<div style="position: absolute; top: 76px; left: 24px; font: 400 64px/1 'Playfair Display', serif; letter-spacing: -0.02em">33<span style="font-size: 30px; vertical-align: top">°C</span></div>
+<div aria-hidden="true" style="position: absolute; top: 84px; right: 28px; width: 14px; font: 500 12px/1.45 'Playfair Display', serif; letter-spacing: 0.1em; text-align: center; color: {{t.muted}}">N<br>Ắ<br>N<br>G</div>
+
+<div aria-hidden="true" style="position: absolute; top: 150px; left: 65px; width: 260px; height: 260px; border-radius: 50%; background: {{t.orb}}; filter: blur(2px)"></div>
+<div aria-hidden="true" style="position: absolute; top: 290px; left: 0; width: 390px; height: 130px; background: {{t.horizon}}"></div>
+
+<div style="position: absolute; top: 380px; left: 24px; right: 24px; display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font: 400 30px 'Playfair Display', serif; letter-spacing: 0.24em">HỘI AN</h1>
+<span style="font-size: 14px; color: {{t.muted}}">Phố cổ Hội An, thứ Tư 12/08/2026, 16:40</span>
+</div>
+
+<dl style="position: absolute; top: 460px; left: 24px; right: 24px; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid {{t.line}}; border-bottom: 1px solid {{t.line}}">
+<div style="padding: 12px 0">
+<dt style="font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.08em; color: {{t.muted}}">THỜI TIẾT</dt>
+<dd style="margin: 4px 0 0; font-size: 14px; font-weight: 500">Nắng, 26–33°</dd>
+</div>
+<div style="padding: 12px 0 12px 12px; border-left: 1px solid {{t.line}}">
+<dt style="font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.08em; color: {{t.muted}}">CẢM XÚC</dt>
+<dd style="margin: 4px 0 0; font-size: 14px; font-weight: 500">Bình yên</dd>
+</div>
+<div style="padding: 12px 0 12px 12px; border-left: 1px solid {{t.line}}">
+<dt style="font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.08em; color: {{t.muted}}">ĐI BỘ</dt>
+<dd style="margin: 4px 0 0; font-size: 14px; font-weight: 500">4,2 km</dd>
+</div>
+</dl>
+
+<div style="position: absolute; top: 548px; left: 20px; right: 20px; display: flex; justify-content: space-between">
+<div style="width: 108px; padding: 6px 6px 20px; background: #FFFFFF; box-shadow: 0 6px 16px rgba(20, 10, 0, 0.2); transform: rotate(-4deg); box-sizing: border-box">
+<div style="height: 88px; background: linear-gradient(160deg, #FFC08A, #F2716B 58%, #9A86F0)"></div>
+</div>
+<div style="width: 108px; padding: 6px 6px 20px; background: #FFFFFF; box-shadow: 0 6px 16px rgba(20, 10, 0, 0.2); transform: rotate(2deg) translateY(6px); box-sizing: border-box">
+<div style="height: 88px; background: linear-gradient(170deg, #FFE0A3, #F6A64B 60%, #D9534F)"></div>
+</div>
+<div style="width: 108px; padding: 6px 6px 20px; background: #FFFFFF; box-shadow: 0 6px 16px rgba(20, 10, 0, 0.2); transform: rotate(5deg); box-sizing: border-box">
+<div style="height: 88px; background: linear-gradient(170deg, #C9D8F0, #8FA6D9 55%, #5B4BD6)"></div>
+</div>
+</div>
+
+<p style="position: absolute; top: 690px; left: 24px; right: 24px; margin: 0; font-size: 14px; line-height: 1.55; color: {{t.ink}}">Chiều muộn phố Hoài lên đèn lồng. Ngồi cà phê bên sông, nghe tiếng xuồng ghé bến.</p>
+
+<div style="position: absolute; top: 756px; left: 24px; right: 24px; display: flex; gap: 8px; flex-wrap: wrap">
+<button style="height: 32px; padding: 0 12px; border: 1px solid {{t.line}}; border-radius: 16px; background: {{t.chip}}; color: {{t.accentText}}; font: 500 13px 'Be Vietnam Pro', sans-serif; cursor: pointer">#phố cổ</button>
+<button style="height: 32px; padding: 0 12px; border: 1px solid {{t.line}}; border-radius: 16px; background: {{t.chip}}; color: {{t.accentText}}; font: 500 13px 'Be Vietnam Pro', sans-serif; cursor: pointer">#đèn lồng</button>
+<button style="height: 32px; padding: 0 12px; border: 1px solid {{t.line}}; border-radius: 16px; background: {{t.chip}}; color: {{t.accentText}}; font: 500 13px 'Be Vietnam Pro', sans-serif; cursor: pointer">#cà phê</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = (this.props.theme ?? 'light') === 'dark';
+const t = dark
+? {
+bg: '#26282C', ink: '#F4F1EC', muted: '#B3AEA6', line: '#43464C', chip: '#33363B', accentText: '#FFB27A',
+orb: 'radial-gradient(circle at 50% 40%, #FFFFFF 0%, #E4E6EA 35%, #9FA3AA 62%, rgba(38,40,44,0) 72%)',
+horizon: 'linear-gradient(180deg, rgba(38,40,44,0) 0%, rgba(38,40,44,0.92) 38%, #26282C 60%)'
+}
+: {
+bg: '#F6F1EA', ink: '#1E1B18', muted: '#6B625A', line: '#E3D8CB', chip: '#FFFDF9', accentText: '#B4430F',
+orb: 'radial-gradient(circle at 50% 42%, #FF7A2E 0%, #FF9C5A 32%, #FFC49A 56%, rgba(246,241,234,0) 72%)',
+horizon: 'linear-gradient(180deg, rgba(246,241,234,0) 0%, rgba(246,241,234,0.9) 38%, #F6F1EA 60%)'
+};
+return { t };
+}
+}
+</script>
+</body>
+</html>
