@@ -16,6 +16,8 @@ export default function MapOverlay({
   stats,
   scratchOn,
   onScratchToggle,
+  heatOn,
+  onHeatToggle,
   friendName,
   onCloseFriend,
   selected,
@@ -81,6 +83,14 @@ export default function MapOverlay({
             onClick={onScratchToggle}
           >
             Tỉnh đã đến
+          </button>
+          <button
+            type="button"
+            className="map-chip map-chip-btn"
+            aria-pressed={heatOn}
+            onClick={onHeatToggle}
+          >
+            Nơi đi nhiều
           </button>
         </div>
       </div>

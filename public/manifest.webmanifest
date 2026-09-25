@@ -1,0 +1,16 @@
+{
+  "name": "Hành trình",
+  "short_name": "Hành trình",
+  "description": "Nhật ký du lịch trên bản đồ: check-in, ảnh, lộ trình đi bộ",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F1EA",
+  "theme_color": "#F6F1EA",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

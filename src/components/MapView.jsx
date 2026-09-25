@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -135,25 +135,30 @@ const linesToGeoJSON = (lines) => ({
  * - draft: {lat, lng} ghim nháp khi check-in (kéo thả được)
  * - focus: {lng, lat, zoom} hoặc {bounds}, kèm padding tuỳ chọn; đổi object để kích hoạt di chuyển camera
  * - scratch: {key: 'n34'|'n63', names: [...]} để tô các tỉnh đã đến, hoặc null để ẩn
+ * - heat: [[lng, lat, weight], ...] để vẽ heatmap khu vực đi qua nhiều, hoặc null để ẩn
  * - dark: dùng style tối (đổi giá trị thì cha phải remount bằng key)
  * - showLocate: hiện nút "Vị trí của tôi"; onLocate({lat, lng}) khi có vị trí
  * - onMapClick(lngLat), onSelectPlace(id), onDraftMove(lngLat)
  */
-export default function MapView({
-  places,
-  tracks,
-  livePoints,
-  selectedId,
-  draft,
-  focus,
-  scratch = null,
-  onMapClick,
-  onSelectPlace,
-  onDraftMove,
-  dark = false,
-  showLocate = false,
-  onLocate,
-}) {
+const MapView = forwardRef(function MapView(
+  {
+    places,
+    tracks,
+    livePoints,
+    selectedId,
+    draft,
+    focus,
+    scratch = null,
+    heat = null,
+    onMapClick,
+    onSelectPlace,
+    onDraftMove,
+    dark = false,
+    showLocate = false,
+    onLocate,
+  },
+  ref,
+) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const draftMarkerRef = useRef(null);
@@ -221,6 +226,36 @@ export default function MapView({
         paint: { "fill-color": C.accent, "fill-opacity": 0.28 },
       });
       map.addSource("live", { type: "geojson", data: EMPTY });
+
+      // Heatmap khu vực đi qua nhiều (dưới lộ trình và điểm); màu theo thanh tiến độ trong DESIGN.md
+      map.addSource("heat", { type: "geojson", data: EMPTY });
+      map.addLayer({
+        id: "heat",
+        type: "heatmap",
+        source: "heat",
+        layout: { visibility: "none" },
+        paint: {
+          "heatmap-weight": ["get", "w"],
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.6, 15, 2],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 10, 14, 16, 28],
+          "heatmap-opacity": 0.8,
+          "heatmap-color": [
+            "interpolate",
+            ["linear"],
+            ["heatmap-density"],
+            0,
+            "rgba(255, 211, 122, 0)",
+            0.2,
+            "#FFD37A",
+            0.5,
+            "#FF8A3D",
+            0.8,
+            "#FF4D8D",
+            1,
+            "#C04DD8",
+          ],
+        },
+      });
 
       // Lộ trình đã lưu
       map.addLayer({
@@ -423,6 +458,20 @@ export default function MapView({
 
   useEffect(() => {
     if (!ready) return;
+    const map = mapRef.current;
+    map.setLayoutProperty("heat", "visibility", heat ? "visible" : "none");
+    map.getSource("heat").setData({
+      type: "FeatureCollection",
+      features: (heat ?? []).map(([lng, lat, w]) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [lng, lat] },
+        properties: { w },
+      })),
+    });
+  }, [ready, heat]);
+
+  useEffect(() => {
+    if (!ready) return;
     mapRef.current.setFilter("place-selected", [
       "all",
       ["!", ["has", "point_count"]],
@@ -480,6 +529,33 @@ export default function MapView({
     }
   }, [focus]);
 
+  // Cho App chụp bản đồ làm poster: đợi hết di chuyển và tải xong tile, rồi chép canvas
+  // ngay trong sự kiện render (không cần preserveDrawingBuffer). → Promise<HTMLCanvasElement>
+  useImperativeHandle(ref, () => ({
+    capture: () =>
+      new Promise((resolve) => {
+        const map = mapRef.current;
+        const grab = () => {
+          const src = map.getCanvas();
+          const copy = document.createElement("canvas");
+          copy.width = src.width;
+          copy.height = src.height;
+          copy.getContext("2d").drawImage(src, 0, 0);
+          resolve(copy);
+        };
+        const check = () => {
+          if (map.isMoving() || !map.areTilesLoaded()) {
+            map.once("idle", check);
+            return;
+          }
+          map.once("render", grab);
+          map.triggerRepaint();
+        };
+        // Chờ một nhịp để hiệu ứng focus (fitBounds) kịp bắt đầu
+        setTimeout(check, 100);
+      }),
+  }));
+
   return (
     <>
       <div ref={containerRef} className="map" />
@@ -495,4 +571,6 @@ export default function MapView({
       )}
     </>
   );
-}
+});
+
+export default MapView;

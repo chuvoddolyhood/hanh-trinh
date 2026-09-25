@@ -743,3 +743,51 @@ drop trigger if exists on_trip_member_removed on public.trip_members;
 create trigger on_trip_member_removed
   after delete on public.trip_members
   for each row execute function private.detach_trip_items();
+
+-- =====================================================================
+-- Giai đoạn 3: lộ trình nhập từ Google Timeline
+-- =====================================================================
+alter table public.tracks drop constraint if exists tracks_source_check;
+alter table public.tracks add constraint tracks_source_check check (source in ('live', 'gpx', 'google'));
+
+-- =====================================================================
+-- Giai đoạn 3: nhắc "ngày này năm trước" bằng Web Push
+-- Edge Function supabase/functions/memories gửi mỗi sáng (lịch pg_cron: xem README)
+-- =====================================================================
+create table if not exists public.push_subscriptions (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users on delete cascade,
+  endpoint    text not null unique,
+  p256dh      text not null,
+  auth        text not null,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "push_owner" on public.push_subscriptions;
+create policy "push_owner" on public.push_subscriptions
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+-- Nơi đã đến vào ngày p_month/p_day ở các năm trước năm p_year, gom theo người (chỉ Edge Function gọi, bằng service role)
+create or replace function public.memories_on(p_year int, p_month int, p_day int)
+returns table (user_id uuid, names text[], years int[])
+language sql stable security definer
+set search_path = public
+as $$
+  select p.user_id,
+         array_agg(p.name order by p.visited_at desc),
+         array_agg(distinct extract(year from p.visited_at)::int)
+  from public.places p
+  where p.kind = 'visited'
+    and extract(month from p.visited_at) = p_month
+    and extract(day from p.visited_at) = p_day
+    and extract(year from p.visited_at) < p_year
+    and exists (select 1 from public.push_subscriptions s where s.user_id = p.user_id)
+  group by p.user_id;
+$$;
+
+revoke all on function public.memories_on(int, int, int) from public, anon, authenticated;
+grant execute on function public.memories_on(int, int, int) to service_role;

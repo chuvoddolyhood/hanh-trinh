@@ -21,6 +21,11 @@ Nhật ký du lịch trên bản đồ: check-in, ảnh có GPS, ghi lộ trình
 - Bạn bè: kết bạn bằng link mời hoặc @username; mỗi check-in chọn "Chỉ mình tôi" hoặc "Bạn bè"; xem bản đồ của bạn, thả tim và bình luận (cập nhật tức thì qua Supabase Realtime)
 - Chuyến đi nhóm: mời bạn bè vào chuyến, mỗi người tự chọn nơi và lộ trình của mình để chia sẻ với nhóm
 - Link chia sẻ dạng `/s/<token>` có ảnh bìa (tên chuyến, ngày, số km, ảnh polaroid) khi gửi qua Zalo, Facebook, Messenger
+- Heatmap khu vực đi qua nhiều (nút "Nơi đi nhiều" trên bản đồ)
+- Xem lại chuyến đi dạng story (cả trên link chia sẻ), tạo poster bản đồ 1080×1350 để lưu hoặc đăng
+- Cài lên màn hình chính (PWA), mở và xem dữ liệu đã tải khi mất mạng
+- Nhập nơi đã ghé và lộ trình đi bộ từ Google Timeline (Android, iPhone) hoặc Google Takeout
+- "Ngày này năm trước" trong Nhật ký, kèm thông báo đẩy mỗi sáng (tuỳ chọn, xem mục 5)
 - Scratch map tô tỉnh đã đến (nút "Tỉnh đã đến" trên bản đồ), đếm theo 34 hoặc 63 tỉnh (chọn ở tab Tôi); đếm số quốc gia đã đến
 
 ## Cài đặt
@@ -52,6 +57,26 @@ Link chia sẻ `/s/<token>` chạy qua Vercel Function (`api/share.js` chèn th�
 
 Workflow `.github/workflows/keep-supabase-alive.yml` gọi API mỗi 3 ngày. Vào GitHub repo → **Settings → Secrets and variables → Actions**, thêm `SUPABASE_URL` và `SUPABASE_ANON_KEY` (giống trong `.env`), rồi vào tab **Actions** chạy tay một lần để kiểm tra. GitHub tự tắt lịch chạy nếu repo không có commit trong 60 ngày; khi đó bật lại trong tab Actions.
 
+### 5. Thông báo "Ngày này năm trước" (tuỳ chọn)
+
+Cần [Supabase CLI](https://supabase.com/docs/guides/cli). Thẻ "Ngày này năm trước" trong Nhật ký vẫn chạy khi bỏ qua bước này.
+
+1. Tạo khoá: `npx web-push generate-vapid-keys`. Khoá công khai đặt vào biến `VITE_VAPID_PUBLIC_KEY` (Vercel và `.env`), rồi deploy lại.
+2. Đặt secret cho function (CRON_SECRET là một chuỗi ngẫu nhiên tự chọn):
+   `supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:ban@example.com CRON_SECRET=...`
+3. Deploy: `supabase functions deploy memories --no-verify-jwt`
+4. Bật extension `pg_cron` và `pg_net` (Database → Extensions), rồi chạy trong SQL Editor (thay `<ref>` và `<CRON_SECRET>`), gửi lúc 8:00 giờ Việt Nam:
+   ```sql
+   select cron.schedule('hanh-trinh-memories', '0 1 * * *', $$
+     select net.http_post(
+       url := 'https://<ref>.supabase.co/functions/v1/memories',
+       headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '<CRON_SECRET>'),
+       body := '{}'::jsonb
+     )
+   $$);
+   ```
+5. Trong app: tab Tôi → "Bật thông báo". Trên iPhone phải thêm app vào màn hình chính trước (iOS 16.4 trở lên).
+
 ## Lưu ý
 
 - **GPS cần HTTPS.** `localhost` được miễn; muốn thử trên điện thoại hãy dùng bản deploy Vercel (có HTTPS sẵn).
@@ -60,6 +85,8 @@ Workflow `.github/workflows/keep-supabase-alive.yml` gọi API mỗi 3 ngày. V�
 - **Ảnh HEIC (iPhone):** Chrome/Android không giải mã được HEIC để nén. Trên iPhone, Safari thường tự chuyển sang JPEG khi chọn ảnh.
 - **Supabase Free** tạm dừng project sau 7 ngày không hoạt động (xem mục 4 ở trên).
 - **Chuyến đi** gom theo khoảng ngày, chưa bỏ riêng được một nơi khỏi chuyến. Muốn giấu nơi nào khi chia sẻ thì đặt vùng riêng tư.
+- **Mất mạng:** mở được app, xem nơi, lộ trình, ảnh và vùng bản đồ đã xem trước đó; chưa check-in hay ghi lộ trình khi offline được. Đăng xuất sẽ xoá dữ liệu, ảnh đã lưu trên máy.
+- **Nhập Google Timeline:** bỏ nơi Google đánh dấu là nhà, chỗ làm; gộp các lần ghé cùng một nơi; chỉ lấy lộ trình đi bộ, chạy. Tự đặt tên theo địa chỉ khi dưới 100 nơi (Nominatim, 1 giây/nơi).
 - **Mức "Công khai"** hiện giống "Có link": đều cần link mới xem được. Trang hồ sơ công khai để dành cho giai đoạn 2.
 
 ## Dữ liệu ranh giới
