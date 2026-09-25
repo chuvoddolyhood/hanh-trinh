@@ -18,6 +18,7 @@ Nhật ký du lịch trên bản đồ: check-in, ảnh có GPS, ghi lộ trình
 - Chuyến đi: gom nơi đã đến và lộ trình theo khoảng ngày
 - Link chia sẻ chuyến đi (`/?s=<token>`), xem không cần đăng nhập; đổi link để thu hồi link cũ
 - Vùng riêng tư: nơi và đoạn lộ trình trong vùng bị ẩn khi chia sẻ (cắt ở server)
+- Scratch map tô tỉnh đã đến (nút "Tỉnh đã đến" trên bản đồ), đếm theo 34 hoặc 63 tỉnh (chọn ở tab Tôi); đếm số quốc gia đã đến
 
 ## Cài đặt
 
@@ -56,6 +57,15 @@ Workflow `.github/workflows/keep-supabase-alive.yml` gọi API mỗi 3 ngày. V�
 - **Chuyến đi** gom theo khoảng ngày, chưa bỏ riêng được một nơi khỏi chuyến. Muốn giấu nơi nào khi chia sẻ thì đặt vùng riêng tư.
 - **Mức "Công khai"** hiện giống "Có link": đều cần link mới xem được. Trang hồ sơ công khai để dành cho giai đoạn 2.
 
+## Dữ liệu ranh giới
+
+`public/geo/*.json` được tạo bằng `python3 scripts/build-geo.py` (chỉ cần Python 3, không cần thư viện):
+
+- Tỉnh: [geoBoundaries](https://www.geoboundaries.org) VNM ADM1 (public domain), 63 tỉnh, gắn tên tỉnh mới theo Nghị quyết 202/2025/QH15. Bảng sáp nhập nằm trong script.
+- Quốc gia: [Natural Earth](https://www.naturalearthdata.com) 1:50m admin 0 (public domain).
+
+Điểm không nằm trong vùng nào (bãi biển, đảo nhỏ bị đơn giản hoá) được gán cho vùng gần nhất trong 20 km.
+
 ## Cấu trúc
 
 ```
@@ -67,4 +77,4 @@ src/components/          Bản đồ, nhật ký, check-in, lộ trình, đăng 
 
 ## Bước tiếp theo
 
-Scratch map 63/34 tỉnh, thống kê số tỉnh và quốc gia, PWA/offline.
+Giai đoạn 2: bạn bè, bình luận, chuyến đi nhóm (xem `hanh-trinh-context/docs/PLAN.md`).
