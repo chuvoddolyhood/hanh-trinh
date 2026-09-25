@@ -196,6 +196,31 @@ export async function getSharedTrip(token) {
   return unwrap(await supabase.rpc('shared_trip', { p_token: token }));
 }
 
+// Nơi muốn đến → đã đến hôm nay (check-in một chạm từ kế hoạch); giữ trip_id để vẫn thuộc chuyến
+export async function markVisited(id, visitedAt, weather) {
+  unwrap(await supabase.from('places').update({ kind: 'visited', visited_at: visitedAt, weather }).eq('id', id));
+}
+
+// --------------------------- Chi phí chuyến đi ---------------------------
+
+const EXPENSE = 'id, trip_id, created_by, paid_by, title, amount, spent_on, split_among, created_at';
+
+export async function listExpenses(tripId) {
+  return unwrap(
+    await supabase.from('trip_expenses').select(EXPENSE).eq('trip_id', tripId)
+      .order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
+  );
+}
+
+// fields: { trip_id, paid_by, title, amount, spent_on, split_among }
+export async function addExpense(fields) {
+  unwrap(await supabase.from('trip_expenses').insert(fields));
+}
+
+export async function deleteExpense(id) {
+  unwrap(await supabase.from('trip_expenses').delete().eq('id', id));
+}
+
 // ----------------------------- Vùng riêng tư -----------------------------
 
 export async function listZones() {

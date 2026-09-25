@@ -70,6 +70,7 @@ flowchart TD
 | `profiles`, `invites`, `friendships` | Hồ sơ (tên, username), link mời, lời mời và quan hệ bạn bè | 2 (đã có) |
 | `trip_members` | Thành viên chuyến đi nhóm (chưa chia vai trò: ai cũng chọn được mục của mình); `places.trip_id`, `tracks.trip_id` đánh dấu mục chia sẻ với nhóm | 2 (đã có) |
 | `comments`, `reactions` | Bình luận, thả tim; chỉ bạn bè | 2 (đã có) |
+| `trip_expenses` | Khoản chi của chuyến: người trả, số tiền (VND), những người chia | 3 (đã có) |
 
 ## Danh sách tính năng
 
@@ -121,6 +122,8 @@ flowchart TD
 | 42 | Ảnh | Ảnh nhỏ 400px tạo lúc upload, dùng cho thẻ, nhật ký, story; ảnh gốc chỉ khi mở xem | 3 | Đã xong |
 | 43 | Thống kê | Huy hiệu, cột mốc (số nơi, tỉnh, ba miền, km đi bộ, ảnh, quốc gia), tính ở máy | 3 | Đã xong |
 | 44 | Lộ trình | Độ cao lộ trình: biểu đồ lên xuống, tổng độ cao đã leo (Open-Meteo Elevation API) | 3 | Đã xong |
+| 45 | Chuyến đi | Chi phí chuyến đi: ghi khoản chi, người trả, chia cho ai; tự tính ai trả ai (bảng `trip_expenses`) | 3 | Đã xong |
+| 46 | Chuyến đi | Kế hoạch từ danh sách muốn đến: gắn vào chuyến, tự sắp thứ tự theo đường ngắn, vẽ trên bản đồ, "Đã đến" một chạm | 3 | Đã xong |
 
 ## Rủi ro và giới hạn kỹ thuật
 

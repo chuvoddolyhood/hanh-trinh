@@ -62,6 +62,10 @@ App giữ màn hình sáng khi ghi. Lỡ tải lại trang thì lộ trình chư
    - **Xem lại dạng story**: phát lại chuyến đi trên bản đồ, từng nơi một.
    - **Chia sẻ link**: chọn mức **Riêng tư**, **Có link** hoặc **Công khai**, rồi gửi link qua Zalo, Messenger. Người nhận xem được mà không cần tài khoản, link có ảnh xem trước.
    - **Tạo link mới** để link cũ hết hiệu lực.
+   - **Kế hoạch**: thêm nơi trong danh sách muốn đến vào chuyến. App tự sắp thứ tự đi theo đường ngắn nhất, **Xem kế hoạch trên bản đồ** vẽ đường nét đứt có đánh số. Đến nơi thì bấm **Đã đến**.
+   - **Chi phí**: **Thêm khoản chi**, chọn người trả và những người chia. App tự tính ai trả ai bao nhiêu.
+
+Nơi muốn đến bất kỳ cũng có nút **Đã đến hôm nay** ở trang chi tiết.
 
 **Vùng riêng tư** (tab **Tôi**): đặt vùng quanh nhà, nơi làm việc. Khi chia sẻ, nơi và đoạn lộ trình trong vùng này bị ẩn.
 
@@ -108,6 +112,8 @@ App giữ màn hình sáng khi ghi. Lỡ tải lại trang thì lộ trình chư
 - [ ] Xem Tổng kết năm ở tab Tôi
 - [ ] Check-in bằng ảnh HEIC chụp từ iPhone, chọn trên máy Android
 - [ ] Xem huy hiệu và biểu đồ độ cao của một lộ trình
+- [ ] Thêm 3 nơi muốn đến vào một chuyến, xem kế hoạch trên bản đồ, bấm **Đã đến** một nơi
+- [ ] Chuyến nhóm: mỗi người thêm một khoản chi, xem phần ai trả ai
 - [ ] Tải bản sao lưu GPX và mở thử bằng app bản đồ khác
 
 ## 9. Lưu ý đã biết

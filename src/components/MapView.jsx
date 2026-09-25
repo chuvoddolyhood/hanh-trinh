@@ -136,6 +136,7 @@ const linesToGeoJSON = (lines) => ({
  * - focus: {lng, lat, zoom} hoặc {bounds}, kèm padding tuỳ chọn; đổi object để kích hoạt di chuyển camera
  * - scratch: {key: 'n34'|'n63', names: [...]} để tô các tỉnh đã đến, hoặc null để ẩn
  * - heat: [[lng, lat, weight], ...] để vẽ heatmap khu vực đi qua nhiều, hoặc null để ẩn
+ * - plan: [[lng, lat], ...] các điểm dừng của kế hoạch chuyến đi theo thứ tự (nét đứt, đánh số), hoặc null để ẩn
  * - dark: dùng style tối (đổi giá trị thì cha phải remount bằng key)
  * - showLocate: hiện nút "Vị trí của tôi"; onLocate({lat, lng}) khi có vị trí
  * - onMapClick(lngLat), onSelectPlace(id), onDraftMove(lngLat)
@@ -150,6 +151,7 @@ const MapView = forwardRef(function MapView(
     focus,
     scratch = null,
     heat = null,
+    plan = null,
     onMapClick,
     onSelectPlace,
     onDraftMove,
@@ -202,6 +204,40 @@ const MapView = forwardRef(function MapView(
     geolocateRef.current = geolocate;
 
     map.on("load", () => {
+      // Kế hoạch chuyến đi: đường nét đứt nối các điểm dừng, số thứ tự trên cùng
+      map.addLayer({
+        id: "plan-line",
+        type: "line",
+        source: "plan",
+        filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": C.wishlist, "line-width": 3, "line-dasharray": [1.5, 1.5] },
+      });
+      map.addLayer({
+        id: "plan-stops",
+        type: "circle",
+        source: "plan",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 11,
+          "circle-color": C.wishlist,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": C.surface,
+        },
+      });
+      map.addLayer({
+        id: "plan-numbers",
+        type: "symbol",
+        source: "plan",
+        filter: ["==", ["geometry-type"], "Point"],
+        layout: {
+          "text-field": ["to-string", ["get", "n"]],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 12,
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": C.surface },
+      });
       if (!dark) tintLiberty(map);
 
       // Nguồn dữ liệu
@@ -213,6 +249,7 @@ const MapView = forwardRef(function MapView(
         clusterMaxZoom: 14, // Từ zoom 15 trở lên luôn hiện từng điểm riêng
       });
       map.addSource("tracks", { type: "geojson", data: EMPTY });
+      map.addSource("plan", { type: "geojson", data: EMPTY });
       map.addSource("provinces", { type: "geojson", data: PROVINCES_URL });
 
       // Scratch map: tô các tỉnh đã đến (vẽ dưới lộ trình và điểm). Không vẽ viền để
@@ -432,6 +469,27 @@ const MapView = forwardRef(function MapView(
     if (ready)
       mapRef.current.getSource("tracks").setData(linesToGeoJSON(tracks));
   }, [ready, tracks]);
+
+  useEffect(() => {
+    if (!ready) return;
+    mapRef.current.getSource("plan").setData(
+      plan
+        ? {
+            type: "FeatureCollection",
+            features: [
+              ...(plan.length > 1
+                ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: plan } }]
+                : []),
+              ...plan.map((c, i) => ({
+                type: "Feature",
+                properties: { n: i + 1 },
+                geometry: { type: "Point", coordinates: c },
+              })),
+            ],
+          }
+        : EMPTY,
+    );
+  }, [ready, plan]);
 
   useEffect(() => {
     if (ready)

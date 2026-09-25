@@ -3,9 +3,9 @@ import * as api from '../lib/api';
 import Icon from './icons';
 import Polaroid from './Polaroid';
 import { usePhotoUrls } from '../hooks/usePhotoUrls';
-import { formatDateLong, toDateStr } from '../lib/dates';
+import { formatDateLong, toDateStr, todayStr } from '../lib/dates';
 import { formatDistance } from '../lib/geo';
-import { weatherKind, weatherWord } from '../lib/weather';
+import { fetchDailyWeather, weatherKind, weatherWord } from '../lib/weather';
 import { moodLabel } from './moods';
 import PlaceSocial from './PlaceSocial';
 
@@ -14,12 +14,27 @@ const TILTS = [-4, 2, 5];
 // Chi tiết một địa điểm: quả cầu aura theo thời tiết, chỉ số, ảnh polaroid, ghi chú, tag, bình luận.
 // owner: tên chủ địa điểm khi xem nơi của bạn bè (chỉ xem, không sửa, xoá)
 // place.pending: check-in lưu lúc mất mạng, chưa lên server (chỉ xem hoặc bỏ)
-export default function PlaceDetail({ place, tracks, userId, owner = null, onBack, onDeleted, onDiscardPending, onShowOnMap, onEdit, onTagClick }) {
+export default function PlaceDetail({ place, tracks, userId, owner = null, onBack, onDeleted, onChanged, onDiscardPending, onShowOnMap, onEdit, onTagClick }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const paths = place.photos.map((p) => p.storage_path);
   const thumbs = usePhotoUrls(paths, { thumb: true }); // Hiện trong khung polaroid
   const urls = usePhotoUrls(paths); // Ảnh gốc khi bấm mở
+
+  // Nơi muốn đến → đã đến hôm nay, một chạm (thời tiết lấy theo hôm nay; lỗi mạng thì bỏ qua thời tiết)
+  async function markVisited() {
+    setDeleting(true);
+    try {
+      const today = todayStr();
+      const weather = await fetchDailyWeather(place.lat, place.lng, today).catch(() => null);
+      await api.markVisited(place.id, today, weather);
+      await onChanged();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function handleDelete() {
     if (!window.confirm(`Xoá "${place.name}" cùng toàn bộ ảnh? Không thể hoàn tác.`)) return;
@@ -129,6 +144,11 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
 
         {!owner && !pending && (
           <>
+            {!visited && (
+              <button type="button" className="btn-pill btn-dark" onClick={markVisited} disabled={deleting}>
+                Đã đến hôm nay
+              </button>
+            )}
             <button type="button" className="btn-pill btn-outline" onClick={onEdit}>Sửa check-in, thêm ảnh</button>
             <button type="button" className="btn-link danger" onClick={handleDelete} disabled={deleting}>
               {deleting ? 'Đang xoá…' : 'Xoá địa điểm'}
