@@ -7,6 +7,7 @@ import { drawPoster } from "./lib/poster";
 import { fetchCurrentWeather } from "./lib/weather";
 import { visitedRegions } from "./lib/regions";
 import { listOutbox, syncOutbox, discardOutbox } from "./lib/outbox";
+import { walkStreak } from "./lib/streak";
 import { useTracker } from "./hooks/useTracker";
 import MapView from "./components/MapView";
 import MapOverlay from "./components/MapOverlay";
@@ -390,6 +391,7 @@ function Workspace({ user, theme, setTheme, dark }) {
       shownPlaces.filter((p) => p.id !== editingId && matchPlace(p, mapQuery)),
     [shownPlaces, mapQuery, editingId],
   );
+  const streak = useMemo(() => walkStreak(tracks, goalKm), [tracks, goalKm]);
   const stats = useMemo(
     () => ({
       visited: places.filter((p) => p.kind === "visited").length,
@@ -714,6 +716,7 @@ function Workspace({ user, theme, setTheme, dark }) {
           onThemeChange={setTheme}
           goalKm={goalKm}
           onGoalChange={setGoalKm}
+          streak={streak}
           provinceSet={provinceSet}
           onProvinceSetChange={setProvinceSet}
           defaultVisibility={defaultVisibility}
@@ -814,6 +817,7 @@ function Workspace({ user, theme, setTheme, dark }) {
           tracker={tracker}
           userId={user.id}
           goalKm={goalKm}
+          streak={streak}
           onMinimize={() => {
             setRecordOpen(false);
             setTab("map");

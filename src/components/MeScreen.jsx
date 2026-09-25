@@ -39,6 +39,7 @@ export default function MeScreen({
   onThemeChange,
   goalKm,
   onGoalChange,
+  streak,
   provinceSet,
   onProvinceSetChange,
   defaultVisibility,
@@ -216,6 +217,11 @@ export default function MeScreen({
             }
           />
         </label>
+        <p className="help">
+          {streak > 0
+            ? `Chuỗi hiện tại: ${streak} ngày liên tiếp đạt mục tiêu.`
+            : "Đi đủ mục tiêu mỗi ngày để bắt đầu chuỗi."}
+        </p>
 
         <form className="stack-sm" onSubmit={savePassword}>
           <label className="field">
@@ -290,7 +296,7 @@ export default function MeScreen({
           </section>
         )}
 
-        <MemoriesPush />
+        <MemoriesPush userId={userId} goalKm={goalKm} />
 
         <PrivacyZones />
 

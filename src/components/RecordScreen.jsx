@@ -23,7 +23,7 @@ function projectRoute(points) {
   return points.map((p, i) => [ox + (xs[i] - minX) * scale, oy + (maxY - p[1]) * scale]);
 }
 
-export default function RecordScreen({ tracker, userId, goalKm, onMinimize, onSaved }) {
+export default function RecordScreen({ tracker, userId, goalKm, streak = 0, onMinimize, onSaved }) {
   const { recording, paused, points, startedAt, pausedMs, pausedAt, accuracy, error, screenLocked } = tracker;
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -143,7 +143,7 @@ export default function RecordScreen({ tracker, userId, goalKm, onMinimize, onSa
 
         <div className="goal">
           <div className="sheet-row">
-            <span className="mono-label">MỤC TIÊU HÔM NAY</span>
+            <span className="mono-label">MỤC TIÊU HÔM NAY{streak > 0 && `, CHUỖI ${streak} NGÀY`}</span>
             <span className="mono-label">{String(goalKm).replace('.', ',')} km</span>
           </div>
           <div className={`goal-bar${goalPct < 12 ? ' is-low' : ''}`} role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100} aria-label="Tiến độ mục tiêu">
