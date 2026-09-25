@@ -6,6 +6,7 @@ import { fetchDailyWeather } from '../lib/weather';
 import { todayStr, toDateStr } from '../lib/dates';
 import { parseTags } from '../lib/text';
 import { locateByTime } from '../lib/geo';
+import { enqueue, isNetworkError } from '../lib/outbox';
 import { usePhotoUrls } from '../hooks/usePhotoUrls';
 import { MOODS } from './moods';
 
@@ -30,6 +31,7 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
   const [groupTrips, setGroupTrips] = useState(null); // null: đang tải
   const [photos, setPhotos] = useState([]); // Ảnh mới: [{ id, file, gps, takenAt, preview }]
   const [removedIds, setRemovedIds] = useState([]); // Ảnh cũ bị bỏ khi sửa
+  const [placeId] = useState(() => place?.id ?? crypto.randomUUID()); // Tạo sẵn để gửi lại không bị trùng
   const oldPhotos = place?.photos ?? [];
   const oldUrls = usePhotoUrls(oldPhotos.map((p) => p.storage_path));
 
@@ -173,29 +175,44 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
       let nextTripId = place?.trip_id ?? null;
       if (groupTrips !== null) nextTripId = tripChoices.some((t) => t.id === tripId) ? tripId : null;
 
-      const save = place ? api.updatePlace : api.createPlace;
-      const saved = await save(
-        {
-          userId,
-          ...(place && { id: place.id, removed: oldPhotos.filter((p) => removedIds.includes(p.id)) }),
-          kind,
-          name: name.trim(),
-          lat: draft.lat,
-          lng: draft.lng,
-          visited_at: visitedAt,
-          mood: kind === 'visited' ? mood || null : null,
-          note: note.trim() || null,
-          tags: parseTags(tagsText),
-          visibility,
-          trip_id: nextTripId,
-          weather,
-          photos,
-        },
-        (i, total) => setProgress(`Đang tải ảnh ${i}/${total}…`),
-      );
-      onSaved(saved);
+      const fields = {
+        id: placeId,
+        kind,
+        name: name.trim(),
+        lat: draft.lat,
+        lng: draft.lng,
+        visited_at: visitedAt,
+        mood: kind === 'visited' ? mood || null : null,
+        note: note.trim() || null,
+        tags: parseTags(tagsText),
+        visibility,
+        trip_id: nextTripId,
+        weather,
+      };
+      const onProgress = (i, total) => setProgress(`Đang tải ảnh ${i}/${total}…`);
+      try {
+        const saved = place
+          ? await api.updatePlace(
+            { ...fields, userId, photos, removed: oldPhotos.filter((p) => removedIds.includes(p.id)) },
+            onProgress,
+          )
+          : await api.createPlace({ ...fields, userId, photos }, onProgress);
+        onSaved(saved);
+      } catch (err) {
+        // Check-in mới khi mất mạng → giữ trên máy, tự gửi khi có mạng. Sửa check-in cũ vẫn cần mạng.
+        if (place || !isNetworkError(err)) throw err;
+        await enqueue(userId, 'place', {
+          ...fields,
+          photos: photos.map(({ id, file, gps, takenAt }) => ({ id, file, gps, takenAt })),
+        });
+        onSaved({ id: placeId }, { queued: true });
+      }
     } catch (err) {
-      setError(`Chưa lưu được: ${err.message}`);
+      setError(
+        place && isNetworkError(err)
+          ? 'Đang mất mạng. Check-in mới được lưu tạm trên máy, còn sửa check-in cần có mạng.'
+          : `Chưa lưu được: ${err.message}`,
+      );
     } finally {
       setSaving(false);
       setProgress('');

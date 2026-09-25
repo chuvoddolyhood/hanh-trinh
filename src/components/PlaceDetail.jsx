@@ -13,7 +13,8 @@ const TILTS = [-4, 2, 5];
 
 // Chi tiết một địa điểm: quả cầu aura theo thời tiết, chỉ số, ảnh polaroid, ghi chú, tag, bình luận.
 // owner: tên chủ địa điểm khi xem nơi của bạn bè (chỉ xem, không sửa, xoá)
-export default function PlaceDetail({ place, tracks, userId, owner = null, onBack, onDeleted, onShowOnMap, onEdit, onTagClick }) {
+// place.pending: check-in lưu lúc mất mạng, chưa lên server (chỉ xem hoặc bỏ)
+export default function PlaceDetail({ place, tracks, userId, owner = null, onBack, onDeleted, onDiscardPending, onShowOnMap, onEdit, onTagClick }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const urls = usePhotoUrls(place.photos.map((p) => p.storage_path));
@@ -32,6 +33,7 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
 
   let audience = place.visibility === 'friends' ? 'BẠN BÈ XEM ĐƯỢC' : 'CHỈ MÌNH BẠN';
   if (owner) audience = `CỦA ${owner.toUpperCase()}`;
+  const { pending } = place;
 
   const w = place.weather;
   const visited = place.kind === 'visited';
@@ -102,11 +104,28 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
         )}
 
         {/* Chỉ có người khác xem được khi để mức Bạn bè hoặc đã chia sẻ vào chuyến nhóm */}
-        {(place.visibility === 'friends' || place.trip_id) && <PlaceSocial placeId={place.id} userId={userId} isOwner={!owner} />}
+        {!pending && (place.visibility === 'friends' || place.trip_id) && <PlaceSocial placeId={place.id} userId={userId} isOwner={!owner} />}
 
         {error && <p className="error">{error}</p>}
 
-        {!owner && (
+        {pending && (
+          <>
+            <p className="notice" role="status">
+              {pending.error
+                ? `Chưa đồng bộ được: ${pending.error}`
+                : `Chưa đồng bộ: lưu trên máy lúc mất mạng, sẽ tự gửi khi có mạng${pending.photos ? ` (kèm ${pending.photos} ảnh)` : ''}.`}
+            </p>
+            <button
+              type="button"
+              className="btn-link danger"
+              onClick={() => window.confirm(`Bỏ check-in "${place.name}" chưa đồng bộ? Không thể hoàn tác.`) && onDiscardPending()}
+            >
+              Bỏ check-in này
+            </button>
+          </>
+        )}
+
+        {!owner && !pending && (
           <>
             <button type="button" className="btn-pill btn-outline" onClick={onEdit}>Sửa check-in, thêm ảnh</button>
             <button type="button" className="btn-link danger" onClick={handleDelete} disabled={deleting}>

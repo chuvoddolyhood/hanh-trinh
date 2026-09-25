@@ -33,7 +33,10 @@ export default function SharedTrip({ token, dark }) {
     [data],
   );
   const places = useMemo(() => (data?.places ?? []).map((p) => ({ ...p, kind: 'visited' })), [data]);
-  const urls = usePhotoUrls(places.flatMap((p) => p.photos.map((ph) => ph.storage_path)));
+  // Ảnh bìa của mọi nơi, cộng toàn bộ ảnh của nơi đang mở
+  const urls = usePhotoUrls(
+    places.flatMap((p) => (p.id === selectedId ? p.photos : p.photos.slice(0, 1)).map((ph) => ph.storage_path)),
+  );
 
   const padding = { bottom: window.innerHeight * 0.5 };
   useEffect(() => {

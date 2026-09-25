@@ -768,6 +768,21 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Tổng kết năm (dùng khung .story) */
+.recap-big { margin: 0; font: 400 64px/1.05 var(--serif); letter-spacing: -0.03em; overflow-wrap: anywhere; }
+.recap-bars { display: flex; gap: 4px; height: 88px; margin-top: 8px; }
+.recap-bar { display: flex; flex: 1; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.recap-fill { width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; background: var(--line); }
+.recap-fill.is-top { background: var(--accent); }
+.recap-bar small { font: 500 10px var(--mono); color: var(--muted); }
+.recap-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 10px; margin-top: 6px; }
+.recap-photos .polaroid { width: 100%; padding: 5px 5px 20px; }
+.recap-photos .polaroid img, .recap-photos .polaroid-empty { height: 84px; }
+.recap-photos figcaption { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+.recap-list { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 0; }
+.recap-list dt { font: 500 11px var(--mono); letter-spacing: 0.08em; color: var(--muted); }
+.recap-list dd { margin: 2px 0 0; font: 600 18px var(--serif); overflow-wrap: anywhere; }
+
 /* Xem trước poster */
 .poster {
   position: absolute;

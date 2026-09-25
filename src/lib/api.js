@@ -32,21 +32,28 @@ export async function listPlaces(userId) {
 }
 
 // Nén và upload ảnh vào thư mục của địa điểm, rồi ghi bảng photos
-// photos: [{ file, gps, takenAt }]; onProgress(i, total) để hiển thị tiến độ upload
+// photos: [{ id, file, gps, takenAt }]; onProgress(i, total) để hiển thị tiến độ upload
+// Tên file theo id ảnh: gửi lại (hàng chờ ngoại tuyến) thì bỏ qua ảnh đã ghi xong
 async function uploadPhotos(userId, placeId, photos, onProgress) {
+  if (!photos.length) return;
+  const saved = new Set(
+    unwrap(await supabase.from('photos').select('storage_path').eq('place_id', placeId)).map((r) => r.storage_path),
+  );
   const rows = [];
   for (let i = 0; i < photos.length; i++) {
     onProgress?.(i + 1, photos.length);
     const p = photos[i];
-    const blob = await compressPhoto(p.file);
     // Thư mục đầu tiên phải là userId để khớp policy Storage
-    const path = `${userId}/${placeId}/${crypto.randomUUID()}.jpg`;
-    unwrap(
-      await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
-        contentType: 'image/jpeg',
-        upsert: false,
-      }),
-    );
+    const path = `${userId}/${placeId}/${p.id ?? crypto.randomUUID()}.jpg`;
+    if (saved.has(path)) continue;
+    const blob = await compressPhoto(p.file);
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
+    // 409: file đã lên ở lần gửi trước nhưng chưa kịp ghi bảng photos
+    const duplicate = error && (String(error.statusCode) === '409' || error.status === 409 || error.code === 'Duplicate');
+    if (error && !duplicate) throw new Error(error.message);
     rows.push({
       place_id: placeId,
       storage_path: path,
@@ -58,8 +65,11 @@ async function uploadPhotos(userId, placeId, photos, onProgress) {
   if (rows.length) unwrap(await supabase.from('photos').insert(rows));
 }
 
+// fields.id tạo sẵn ở máy: lần gửi trước đã tạo nơi (mất mạng lúc tải ảnh) thì chỉ tải nốt ảnh
 export async function createPlace({ userId, photos = [], ...fields }, onProgress) {
-  const place = unwrap(await supabase.from('places').insert(fields).select().single());
+  const place =
+    unwrap(await supabase.from('places').select().eq('id', fields.id).maybeSingle()) ??
+    unwrap(await supabase.from('places').insert(fields).select().single());
   await uploadPhotos(userId, place.id, photos, onProgress);
   return place;
 }
@@ -101,12 +111,18 @@ export async function listTracks(userId) {
 }
 
 // points: [[lng, lat, epochMs|null], ...]
-export async function createTrack({ name, points, source }) {
+// id (tuỳ chọn) tạo sẵn ở máy: gửi lại từ hàng chờ ngoại tuyến không tạo trùng
+export async function createTrack({ id, name, points, source }) {
+  if (id) {
+    const existing = unwrap(await supabase.from('tracks').select(TRACK).eq('id', id).maybeSingle());
+    if (existing) return existing;
+  }
   const times = points.map((p) => p[2]).filter((t) => t != null);
   return unwrap(
     await supabase
       .from('tracks')
       .insert({
+        id,
         name,
         source,
         points,
