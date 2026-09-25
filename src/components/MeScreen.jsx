@@ -3,7 +3,10 @@ import * as api from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { parseGpxFile } from "../lib/gpx";
 import { bounds, formatDistance, formatDuration } from "../lib/geo";
-import { formatDate, toDateStr } from "../lib/dates";
+import { formatDate, toDateStr, todayStr } from "../lib/dates";
+import { placesToGeoJson, tracksToGpx, downloadText } from "../lib/backup";
+import { clearOutbox } from "../lib/outbox";
+import { recapYears } from "../lib/recap";
 import Icon from "./icons";
 import FriendsSection from "./FriendsSection";
 import TimelineImport from "./TimelineImport";
@@ -40,8 +43,11 @@ export default function MeScreen({
   friendsRefresh,
   onViewFriend,
   onMakePoster,
+  onOpenRecap,
   places,
   tracks,
+  pendingCount,
+  onDiscardPending,
   onChanged,
   onShowTrack,
 }) {
@@ -93,6 +99,10 @@ export default function MeScreen({
 
   async function removeTrack(t) {
     if (!window.confirm(`Xoá lộ trình "${t.name}"?`)) return;
+    if (t.pending) {
+      onDiscardPending(t.id);
+      return;
+    }
     try {
       await api.deleteTrack(t.id);
       onChanged();
@@ -100,6 +110,21 @@ export default function MeScreen({
       setMessage(e.message);
     }
   }
+
+  // Máy dùng chung: đăng xuất xoá cả mục chưa đồng bộ, nên hỏi trước
+  async function signOut() {
+    if (
+      pendingCount > 0 &&
+      !window.confirm(
+        `Còn ${pendingCount} mục lưu lúc mất mạng chưa đồng bộ. Đăng xuất sẽ xoá chúng khỏi máy này. Vẫn đăng xuất?`,
+      )
+    )
+      return;
+    await clearOutbox().catch(() => {});
+    supabase.auth.signOut();
+  }
+
+  const years = recapYears(places, tracks);
 
   return (
     <div className="screen">
@@ -208,6 +233,20 @@ export default function MeScreen({
           </button>
         </section>
 
+        {years.length > 0 && (
+          <section className="stack-sm">
+            <h2 className="section-title">Tổng kết năm</h2>
+            <p className="help">Xem lại một năm: số nơi, tỉnh mới, quãng đường đi bộ, tháng đi nhiều nhất.</p>
+            <div className="chips">
+              {years.map((y) => (
+                <button type="button" key={y} className="chip" onClick={() => onOpenRecap(y)}>
+                  Năm {y}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         <MemoriesPush />
 
         <PrivacyZones />
@@ -226,6 +265,11 @@ export default function MeScreen({
                   onClick={() => onShowTrack(bounds(t.points))}
                 >
                   <span className="track-name">{t.name}</span>
+                  {t.pending && (
+                    <span className="muted-sm">
+                      {t.pending.error ? `Chưa đồng bộ được: ${t.pending.error}` : "Chờ đồng bộ"}
+                    </span>
+                  )}
                   <span className="muted-sm">
                     {formatDistance(t.distance_m)}
                     {t.started_at &&
@@ -272,10 +316,47 @@ export default function MeScreen({
 
         <TimelineImport places={places} onChanged={onChanged} />
 
+        <section className="stack-sm">
+          <h2 className="section-title">Sao lưu dữ liệu</h2>
+          <p className="help">
+            Tải địa điểm (GeoJSON) và lộ trình (GPX) về máy, mở được bằng ứng dụng bản đồ khác. Chưa gồm ảnh.
+          </p>
+          <div className="row">
+            <button
+              type="button"
+              className="btn-pill btn-outline"
+              disabled={!places.length}
+              onClick={() =>
+                downloadText(
+                  JSON.stringify(placesToGeoJson(places), null, 2),
+                  `hanh-trinh-dia-diem-${todayStr()}.geojson`,
+                  "application/geo+json",
+                )
+              }
+            >
+              Địa điểm ({places.length})
+            </button>
+            <button
+              type="button"
+              className="btn-pill btn-outline"
+              disabled={!tracks.length}
+              onClick={() =>
+                downloadText(
+                  tracksToGpx(tracks),
+                  `hanh-trinh-lo-trinh-${todayStr()}.gpx`,
+                  "application/gpx+xml",
+                )
+              }
+            >
+              Lộ trình ({tracks.length})
+            </button>
+          </div>
+        </section>
+
         <button
           type="button"
           className="btn-pill btn-outline"
-          onClick={() => supabase.auth.signOut()}
+          onClick={signOut}
         >
           Đăng xuất
         </button>

@@ -3,6 +3,7 @@ import * as api from '../lib/api';
 import Icon from './icons';
 import { formatDuration, formatPace, trackDistance } from '../lib/geo';
 import { formatDate, partOfDay, toDateStr } from '../lib/dates';
+import { enqueue, isNetworkError } from '../lib/outbox';
 
 // Tên mặc định: "Đi bộ 24/09/2026"
 const defaultName = (ms) => `Đi bộ ${formatDate(toDateStr(new Date(ms ?? Date.now())))}`;
@@ -22,7 +23,7 @@ function projectRoute(points) {
   return points.map((p, i) => [ox + (xs[i] - minX) * scale, oy + (maxY - p[1]) * scale]);
 }
 
-export default function RecordScreen({ tracker, goalKm, onMinimize, onSaved }) {
+export default function RecordScreen({ tracker, userId, goalKm, onMinimize, onSaved }) {
   const { recording, paused, points, startedAt, pausedMs, pausedAt, accuracy, error, screenLocked } = tracker;
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,11 +59,20 @@ export default function RecordScreen({ tracker, goalKm, onMinimize, onSaved }) {
     }
     setBusy(true);
     setMessage(null);
+    // id tạo sẵn: mất mạng giữa chừng rồi gửi lại từ hàng chờ không bị trùng
+    const track = { id: crypto.randomUUID(), name: name.trim() || defaultName(startedAt), points, source: 'live' };
     try {
-      await api.createTrack({ name: name.trim() || defaultName(startedAt), points, source: 'live' });
+      let queued = false;
+      try {
+        await api.createTrack(track);
+      } catch (e) {
+        if (!isNetworkError(e)) throw e;
+        await enqueue(userId, 'track', track);
+        queued = true;
+      }
       tracker.reset();
       setName('');
-      setMessage('Đã lưu lộ trình.');
+      setMessage(queued ? 'Đang mất mạng: đã lưu trên máy, sẽ tự đồng bộ khi có mạng.' : 'Đã lưu lộ trình.');
       onSaved();
     } catch (e) {
       // Giữ nguyên điểm trong bộ nhớ tạm để người dùng thử lưu lại

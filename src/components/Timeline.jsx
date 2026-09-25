@@ -59,7 +59,8 @@ export default function Timeline({
     return [...map.entries()];
   }, [filtered]);
 
-  const covers = filtered.map((p) => p.photos[0]?.storage_path).filter(Boolean);
+  // Theo mọi nơi (không theo kết quả lọc) để gõ tìm kiếm không phải xin lại URL ảnh
+  const covers = places.map((p) => p.photos[0]?.storage_path).filter(Boolean);
   const urls = usePhotoUrls(covers);
 
   const showSearch = searchOpen || query || from || to;
@@ -264,6 +265,7 @@ function TimelineList({ items, urls, onSelect }) {
                         .split("-")
                         .reverse()
                         .join("/")}
+                  {p.pending && ", CHỜ ĐỒNG BỘ"}
                 </span>
                 <span className="tl-name">{p.name}</span>
                 {p.kind === "visited" && (

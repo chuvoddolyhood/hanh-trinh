@@ -110,10 +110,13 @@ flowchart TD
 | 31 | Trình bày | Replay hành trình dạng story | 3 | Đã xong |
 | 32 | Trình bày | Xuất ảnh, poster bản đồ | 3 | Đã xong |
 | 33 | Tiện ích | Nhắc "ngày này năm trước" (pg_cron + Web Push) | 3 | Đã xong |
-| 34 | Tiện ích | PWA dùng khi mất mạng (xem dữ liệu đã tải; chưa ghi khi offline, chưa đồng bộ sau) | 3 | Đã xong một phần |
+| 34 | Tiện ích | PWA dùng khi mất mạng (xem dữ liệu đã tải; check-in mới và lộ trình ghi được, xem #38; sửa check-in vẫn cần mạng) | 3 | Đã xong |
 | 35 | Tiện ích | Nhập dữ liệu từ Google Takeout và Google Maps Timeline | 3 | Đã xong |
 | 36 | Lộ trình | App Capacitor ghi GPS khi chạy nền | 3 | Kế hoạch |
 | 37 | Bản đồ | Heatmap các khu vực đi qua nhiều | 3 | Đã xong |
+| 38 | Tiện ích | Check-in và lưu lộ trình khi mất mạng (hàng chờ IndexedDB), tự đồng bộ khi có mạng | 3 | Đã xong |
+| 39 | Tiện ích | Sao lưu dữ liệu: tải địa điểm (GeoJSON) và lộ trình (GPX) | 3 | Đã xong |
+| 40 | Trình bày | Tổng kết năm dạng story: số nơi, tỉnh mới, km, tháng đi nhiều nhất, dấu ấn | 3 | Đã xong |
 
 ## Rủi ro và giới hạn kỹ thuật
 

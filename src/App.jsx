@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, isConfigured } from "./lib/supabase";
 import * as api from "./lib/api";
 import { matchPlace } from "./lib/text";
-import { bounds, formatDistance, heatPoints } from "./lib/geo";
+import { bounds, formatDistance, heatPoints, trackDistance } from "./lib/geo";
 import { drawPoster } from "./lib/poster";
 import { fetchCurrentWeather } from "./lib/weather";
 import { visitedRegions } from "./lib/regions";
+import { listOutbox, syncOutbox, discardOutbox } from "./lib/outbox";
 import { useTracker } from "./hooks/useTracker";
 import MapView from "./components/MapView";
 import MapOverlay from "./components/MapOverlay";
@@ -19,6 +20,7 @@ import TripsScreen from "./components/TripsScreen";
 import SharedTrip from "./components/SharedTrip";
 import StoryPlayer from "./components/StoryPlayer";
 import PosterPreview from "./components/PosterPreview";
+import YearRecap from "./components/YearRecap";
 import Icon from "./components/icons";
 
 // State lưu trên máy (localStorage); lỗi đọc/ghi thì dùng giá trị mặc định
@@ -158,6 +160,32 @@ function clearOffline() {
 const openMemories = new URLSearchParams(window.location.search).has("memories");
 if (openMemories) window.history.replaceState(null, "", window.location.pathname);
 
+// Mục trong hàng chờ ngoại tuyến → dạng giống bản ghi từ server để hiện trên bản đồ, nhật ký.
+// pending: { photos: số ảnh chờ tải, error: lỗi khi gửi (nếu có) }
+function pendingPlace(item, userId) {
+  const { photos, ...fields } = item.data;
+  return {
+    ...fields,
+    user_id: userId,
+    photos: [],
+    created_at: new Date(item.createdAt).toISOString(),
+    pending: { photos: photos.length, error: item.error },
+  };
+}
+
+function pendingTrack(item, userId) {
+  const { points } = item.data;
+  const times = points.map((p) => p[2]).filter((t) => t != null);
+  return {
+    ...item.data,
+    user_id: userId,
+    distance_m: trackDistance(points),
+    started_at: times.length ? new Date(times[0]).toISOString() : null,
+    ended_at: times.length ? new Date(times.at(-1)).toISOString() : null,
+    pending: { error: item.error },
+  };
+}
+
 const TABS = [
   { id: "map", label: "Bản đồ", icon: "map" },
   { id: "journal", label: "Nhật ký", icon: "book" },
@@ -169,8 +197,24 @@ const TABS = [
 function Workspace({ user, theme, setTheme, dark }) {
   const [tab, setTab] = useState(openMemories ? "journal" : "map");
   const [recordOpen, setRecordOpen] = useState(false);
-  const [places, setPlaces] = useState([]);
-  const [tracks, setTracks] = useState([]);
+  const [savedPlaces, setPlaces] = useState([]);
+  const [savedTracks, setTracks] = useState([]);
+  const [outbox, setOutbox] = useState([]); // Check-in, lộ trình lưu lúc mất mạng, chờ gửi
+  // Mục đang chờ hiện cùng dữ liệu đã lưu (trên cùng)
+  const places = useMemo(
+    () => [
+      ...outbox.filter((i) => i.type === "place").map((i) => pendingPlace(i, user.id)),
+      ...savedPlaces,
+    ],
+    [outbox, savedPlaces, user.id],
+  );
+  const tracks = useMemo(
+    () => [
+      ...outbox.filter((i) => i.type === "track").map((i) => pendingTrack(i, user.id)),
+      ...savedTracks,
+    ],
+    [outbox, savedTracks, user.id],
+  );
   const [loadError, setLoadError] = useState(null);
   const [selectedId, setSelectedId] = useState(null); // Thẻ xem nhanh trên bản đồ
   const [detailId, setDetailId] = useState(null); // Màn hình chi tiết
@@ -194,6 +238,7 @@ function Workspace({ user, theme, setTheme, dark }) {
   ); // 'private' | 'friends'
   const [friend, setFriend] = useState(null); // Đang xem bản đồ của bạn: { profile, places }
   const [story, setStory] = useState(null); // Xem lại dạng story: { title, places, returnTab }
+  const [recap, setRecap] = useState(null); // Tổng kết năm: { year, returnTab }
   const [poster, setPoster] = useState(null); // { status: 'working' | 'ready', url, blob, title }
   const mapApi = useRef(null);
   const [external, setExternal] = useState(null); // Nơi của thành viên chuyến nhóm: { place, ownerName }
@@ -230,6 +275,31 @@ function Workspace({ user, theme, setTheme, dark }) {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  const refreshOutbox = useCallback(
+    () => listOutbox(user.id).then(setOutbox).catch(() => {}),
+    [user.id],
+  );
+
+  // Gửi các mục lưu lúc mất mạng: khi mở app và mỗi khi có mạng lại
+  const sync = useCallback(async () => {
+    const sent = await syncOutbox(user.id).catch(() => 0);
+    if (sent) await reload();
+    await refreshOutbox();
+    if (sent) setNotice(`Đã đồng bộ ${sent} mục lưu lúc mất mạng.`);
+  }, [user.id, reload, refreshOutbox]);
+
+  useEffect(() => {
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [sync]);
+
+  // Bỏ một mục đang chờ (không gửi nữa)
+  async function discardPending(id) {
+    await discardOutbox(id).catch(() => {});
+    await refreshOutbox();
+  }
 
   // Link mời đã lưu lúc mở trang (xem PENDING_INVITE) → thành bạn bè với người mời; xoá trước để không nhận lại
   useEffect(() => {
@@ -401,6 +471,7 @@ function Workspace({ user, theme, setTheme, dark }) {
     if (!points.length) return;
     setDetailId(null);
     setStory(null);
+    setRecap(null);
     setSelectedId(null);
     setTab("map");
     setPoster({ status: "working", title });
@@ -436,8 +507,10 @@ function Workspace({ user, theme, setTheme, dark }) {
     });
   }
 
-  const onMap = tab === "map" && !recordOpen && !detail && !story && !poster;
-  const showTabBar = !recordOpen && !detail && !checkin && !story && !poster;
+  const onMap =
+    tab === "map" && !recordOpen && !detail && !story && !poster && !recap;
+  const showTabBar =
+    !recordOpen && !detail && !checkin && !story && !poster && !recap;
 
   return (
     <div className="app">
@@ -518,10 +591,12 @@ function Workspace({ user, theme, setTheme, dark }) {
                   padding: { bottom: window.innerHeight * 0.62 },
                 })
               }
-              onSaved={async (place) => {
-                await reload();
+              onSaved={async (place, { queued } = {}) => {
+                await Promise.all([reload(), refreshOutbox()]);
                 closeCheckin();
                 setDetailId(place.id);
+                if (queued)
+                  setNotice("Đang mất mạng: đã lưu check-in trên máy, sẽ tự đồng bộ khi có mạng.");
               }}
             />
           </section>
@@ -576,8 +651,14 @@ function Workspace({ user, theme, setTheme, dark }) {
           friendsRefresh={friendsRefresh}
           onViewFriend={viewFriend}
           onMakePoster={makeMyPoster}
+          onOpenRecap={(year) => {
+            setRecap({ year, returnTab: tab });
+            setTab("map");
+          }}
           places={places}
           tracks={tracks}
+          pendingCount={outbox.length}
+          onDiscardPending={discardPending}
           onChanged={reload}
           onShowTrack={(b) => {
             setTab("map");
@@ -598,6 +679,11 @@ function Workspace({ user, theme, setTheme, dark }) {
             setDetailId(null);
             setSelectedId(null);
             reload();
+          }}
+          onDiscardPending={async () => {
+            setDetailId(null);
+            setSelectedId(null);
+            await discardPending(detail.id);
           }}
           onShowOnMap={() => showOnMap(detail)}
           onEdit={() => editPlace(detail)}
@@ -625,15 +711,41 @@ function Workspace({ user, theme, setTheme, dark }) {
         />
       )}
 
+      {recap && (
+        <YearRecap
+          year={recap.year}
+          places={places}
+          tracks={tracks}
+          provinceSet={provinceSet}
+          onFocus={(f) =>
+            setFocus({ ...f, padding: { bottom: window.innerHeight * 0.48 } })
+          }
+          onClose={() => {
+            setTab(recap.returnTab);
+            setRecap(null);
+          }}
+          onPlayStory={(storyPlaces) => {
+            setStory({
+              title: `Năm ${recap.year}`,
+              places: storyPlaces,
+              returnTab: recap.returnTab,
+            });
+            setRecap(null);
+          }}
+          onMakePoster={makePoster}
+        />
+      )}
+
       {recordOpen && (
         <RecordScreen
           tracker={tracker}
+          userId={user.id}
           goalKm={goalKm}
           onMinimize={() => {
             setRecordOpen(false);
             setTab("map");
           }}
-          onSaved={reload}
+          onSaved={() => Promise.all([reload(), refreshOutbox()])}
         />
       )}
 
