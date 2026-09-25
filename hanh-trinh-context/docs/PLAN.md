@@ -107,13 +107,13 @@ flowchart TD
 | 28 | Xã hội | Chuyến đi nhóm: chủ mời bạn bè, mỗi người tự chọn nơi/lộ trình chia sẻ với nhóm | 2 | Đã xong |
 | 29 | Hạ tầng | Chuyển lưu ảnh sang Cloudflare R2 | 2 | Kế hoạch |
 | 30 | Chia sẻ | Ảnh xem trước (OG preview) cho link chia sẻ: link `/s/<token>`, ảnh bìa vẽ bằng @vercel/og | 2 | Đã xong |
-| 31 | Trình bày | Replay hành trình dạng story | 3 | Kế hoạch |
-| 32 | Trình bày | Xuất ảnh, poster bản đồ | 3 | Kế hoạch |
-| 33 | Tiện ích | Nhắc "ngày này năm trước" (pg_cron + Web Push) | 3 | Kế hoạch |
-| 34 | Tiện ích | PWA dùng khi mất mạng, đồng bộ sau | 3 | Kế hoạch |
-| 35 | Tiện ích | Nhập dữ liệu từ Google Takeout và Google Maps Timeline | 3 | Kế hoạch |
+| 31 | Trình bày | Replay hành trình dạng story | 3 | Đã xong |
+| 32 | Trình bày | Xuất ảnh, poster bản đồ | 3 | Đã xong |
+| 33 | Tiện ích | Nhắc "ngày này năm trước" (pg_cron + Web Push) | 3 | Đã xong |
+| 34 | Tiện ích | PWA dùng khi mất mạng (xem dữ liệu đã tải; chưa ghi khi offline, chưa đồng bộ sau) | 3 | Đã xong một phần |
+| 35 | Tiện ích | Nhập dữ liệu từ Google Takeout và Google Maps Timeline | 3 | Đã xong |
 | 36 | Lộ trình | App Capacitor ghi GPS khi chạy nền | 3 | Kế hoạch |
-| 37 | Bản đồ | Heatmap các khu vực đi qua nhiều | 3 | Kế hoạch |
+| 37 | Bản đồ | Heatmap các khu vực đi qua nhiều | 3 | Đã xong |
 
 ## Rủi ro và giới hạn kỹ thuật
 

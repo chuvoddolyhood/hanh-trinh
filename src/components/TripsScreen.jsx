@@ -33,7 +33,7 @@ const dayCount = (t) => Math.round((new Date(t.end_date) - new Date(t.start_date
 // Tab Chuyến đi: danh sách, tạo/sửa chuyến, xem chi tiết và bật link chia sẻ
 // onOpenPlace(place, ownerName): ownerName có giá trị khi là nơi của thành viên khác
 // onDataChanged(): tải lại nơi, lộ trình của mình ở App (sau khi gắn/gỡ khỏi chuyến nhóm)
-export default function TripsScreen({ userId, places, tracks, onOpenPlace, onShowOnMap, onDataChanged }) {
+export default function TripsScreen({ userId, places, tracks, onOpenPlace, onShowOnMap, onDataChanged, onPlayStory, onMakePoster }) {
   const [trips, setTrips] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(null);
@@ -82,6 +82,8 @@ export default function TripsScreen({ userId, places, tracks, onOpenPlace, onSho
         onLeft={async () => { setOpenId(null); await load(); }}
         onOpenPlace={onOpenPlace}
         onShowOnMap={onShowOnMap}
+        onPlayStory={onPlayStory}
+        onMakePoster={onMakePoster}
       />
     );
   }
@@ -137,7 +139,7 @@ const isGroup = (trip, userId) => trip.user_id !== userId || trip.members.length
 // Gộp danh sách, bỏ trùng theo id (nơi của chủ vừa trong khoảng ngày vừa được chọn cho nhóm)
 const unique = (list) => [...new Map(list.map((x) => [x.id, x])).values()];
 
-function TripDetail({ trip, userId, own, onBack, onEdit, onChanged, onLeft, onOpenPlace, onShowOnMap }) {
+function TripDetail({ trip, userId, own, onBack, onEdit, onChanged, onLeft, onOpenPlace, onShowOnMap, onPlayStory, onMakePoster }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [group, setGroup] = useState({ places: [], tracks: [] }); // Mục mọi người đã chọn cho nhóm
@@ -257,6 +259,31 @@ function TripDetail({ trip, userId, own, onBack, onEdit, onChanged, onLeft, onOp
         </dl>
 
         {trip.note && <p className="note">{trip.note}</p>}
+        {items.places.length > 0 && (
+          <button type="button" className="btn-pill btn-dark" onClick={() => onPlayStory(trip.name, items.places)}>
+            <Icon name="play" size={16} />
+            {'Xem lại dạng story'}
+          </button>
+        )}
+        {myPoints.length > 0 && (
+          <button
+            type="button"
+            className="btn-pill btn-outline"
+            onClick={() =>
+              onMakePoster({
+                title: trip.name,
+                label: dateRange(trip),
+                stats: [
+                  ['Nơi đã đến', String(items.places.length)],
+                  ['Đi bộ', formatDistance(km)],
+                  ['Số ngày', String(dayCount(trip))],
+                ],
+                points: myPoints,
+              })}
+          >
+            Tạo poster
+          </button>
+        )}
         {message && <p className="notice">{message}</p>}
 
         {isOwner && (

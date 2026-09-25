@@ -300,3 +300,27 @@ export function subscribePlace(placeId, onChange) {
   channel.subscribe();
   return () => supabase.removeChannel(channel);
 }
+
+// Nhập nhiều địa điểm một lúc (Google Timeline), chia lô để request không quá lớn
+export async function createPlacesBulk(rows, onProgress) {
+  for (let i = 0; i < rows.length; i += 200) {
+    unwrap(await supabase.from('places').insert(rows.slice(i, i + 200)));
+    onProgress?.(Math.min(i + 200, rows.length), rows.length);
+  }
+}
+
+// ------------------------------- Web Push -------------------------------
+
+// Lưu đăng ký push của trình duyệt này (endpoint là duy nhất; đăng ký lại thì cập nhật)
+export async function savePushSubscription(sub) {
+  const { endpoint, keys } = sub.toJSON();
+  unwrap(
+    await supabase
+      .from('push_subscriptions')
+      .upsert({ endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: 'endpoint' }),
+  );
+}
+
+export async function deletePushSubscription(endpoint) {
+  unwrap(await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint));
+}

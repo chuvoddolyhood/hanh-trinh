@@ -94,3 +94,19 @@ export function locateByTime(tracks, ms, toleranceMs = 10 * 60 * 1000) {
   }
   return best && { lng: best[0], lat: best[1] };
 }
+
+// Điểm cho heatmap: điểm lộ trình thưa ra mỗi ~stepM mét (đi chậm, dừng lâu → dày hơn, nóng hơn),
+// địa điểm đã đến có trọng số lớn hơn. → [[lng, lat, weight], ...]
+export function heatPoints(tracks, places, stepM = 25) {
+  const out = [];
+  for (const t of tracks) {
+    let last = null;
+    for (const p of t.points) {
+      if (last && haversine(last, p) < stepM) continue;
+      out.push([p[0], p[1], 1]);
+      last = p;
+    }
+  }
+  for (const p of places) if (p.kind === 'visited') out.push([p.lng, p.lat, 5]);
+  return out;
+}

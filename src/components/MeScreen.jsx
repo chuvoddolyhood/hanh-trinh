@@ -6,6 +6,8 @@ import { bounds, formatDistance, formatDuration } from "../lib/geo";
 import { formatDate, toDateStr } from "../lib/dates";
 import Icon from "./icons";
 import FriendsSection from "./FriendsSection";
+import TimelineImport from "./TimelineImport";
+import MemoriesPush from "./MemoriesPush";
 
 const THEMES = [
   { id: "auto", label: "Tự động" },
@@ -37,6 +39,8 @@ export default function MeScreen({
   userId,
   friendsRefresh,
   onViewFriend,
+  onMakePoster,
+  places,
   tracks,
   onChanged,
   onShowTrack,
@@ -196,6 +200,16 @@ export default function MeScreen({
           {pwMessage && <p className="notice">{pwMessage}</p>}
         </form>
 
+        <section className="stack-sm">
+          <h2 className="section-title">Poster bản đồ</h2>
+          <p className="help">Ảnh bản đồ các nơi đã đến và lộ trình, kèm số liệu, để lưu hoặc đăng lên mạng xã hội. Bật "Tỉnh đã đến" hoặc "Nơi đi nhiều" trên bản đồ trước nếu muốn in cả hai lớp đó.</p>
+          <button type="button" className="btn-pill btn-outline" onClick={onMakePoster}>
+            Tạo poster
+          </button>
+        </section>
+
+        <MemoriesPush />
+
         <PrivacyZones />
 
         <section className="stack-sm">
@@ -255,6 +269,8 @@ export default function MeScreen({
           </label>
           {message && <p className="notice">{message}</p>}
         </section>
+
+        <TimelineImport places={places} onChanged={onChanged} />
 
         <button
           type="button"

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, isConfigured } from "./lib/supabase";
 import * as api from "./lib/api";
 import { matchPlace } from "./lib/text";
-import { bounds } from "./lib/geo";
+import { bounds, formatDistance, heatPoints } from "./lib/geo";
+import { drawPoster } from "./lib/poster";
 import { fetchCurrentWeather } from "./lib/weather";
 import { visitedRegions } from "./lib/regions";
 import { useTracker } from "./hooks/useTracker";
@@ -16,6 +17,8 @@ import RecordScreen from "./components/RecordScreen";
 import MeScreen from "./components/MeScreen";
 import TripsScreen from "./components/TripsScreen";
 import SharedTrip from "./components/SharedTrip";
+import StoryPlayer from "./components/StoryPlayer";
+import PosterPreview from "./components/PosterPreview";
 import Icon from "./components/icons";
 
 // State lưu trên máy (localStorage); lỗi đọc/ghi thì dùng giá trị mặc định
@@ -69,9 +72,10 @@ export default function App() {
       setSession(data.session);
       setAuthReady(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, s) =>
-      setSession(s),
-    );
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s);
+      if (event === "SIGNED_OUT") clearOffline();
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -113,6 +117,47 @@ function takePendingInvite() {
   return token;
 }
 
+// Dữ liệu đã tải lần gần nhất, để mở app khi mất mạng (PWA). Lỗi đầy bộ nhớ thì chỉ mất bản lưu.
+const OFFLINE_PREFIX = "hanh-trinh:offline:";
+
+function saveOffline(userId, data) {
+  try {
+    localStorage.setItem(OFFLINE_PREFIX + userId, JSON.stringify(data));
+  } catch {
+    // Quá hạn mức localStorage (nhiều lộ trình dài): bỏ qua
+  }
+}
+
+function loadOffline(userId) {
+  try {
+    return JSON.parse(localStorage.getItem(OFFLINE_PREFIX + userId));
+  } catch {
+    return null;
+  }
+}
+
+// Đăng xuất: xoá dữ liệu và ảnh đã lưu trên máy (máy dùng chung)
+function clearOffline() {
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith(OFFLINE_PREFIX))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // Bị chặn lưu trữ: không có gì để xoá
+  }
+  globalThis.caches?.delete("ht-photos");
+  // Huỷ đăng ký push của trình duyệt này (máy dùng chung, người sau đăng nhập tài khoản khác)
+  navigator.serviceWorker
+    ?.getRegistration()
+    .then((reg) => reg?.pushManager?.getSubscription())
+    .then((s) => s?.unsubscribe())
+    .catch(() => {});
+}
+
+// Mở từ thông báo "Ngày này năm trước" (?memories=1) → vào Nhật ký
+const openMemories = new URLSearchParams(window.location.search).has("memories");
+if (openMemories) window.history.replaceState(null, "", window.location.pathname);
+
 const TABS = [
   { id: "map", label: "Bản đồ", icon: "map" },
   { id: "journal", label: "Nhật ký", icon: "book" },
@@ -122,7 +167,7 @@ const TABS = [
 ];
 
 function Workspace({ user, theme, setTheme, dark }) {
-  const [tab, setTab] = useState("map");
+  const [tab, setTab] = useState(openMemories ? "journal" : "map");
   const [recordOpen, setRecordOpen] = useState(false);
   const [places, setPlaces] = useState([]);
   const [tracks, setTracks] = useState([]);
@@ -141,12 +186,16 @@ function Workspace({ user, theme, setTheme, dark }) {
     "34",
   ); // '34' | '63'
   const [scratchOn, setScratchOn] = useStored("hanh-trinh:scratch", false);
+  const [heatOn, setHeatOn] = useStored("hanh-trinh:heat", false);
   const [regions, setRegions] = useState(null);
   const [defaultVisibility, setDefaultVisibility] = useStored(
     "hanh-trinh:default-visibility",
     "private",
   ); // 'private' | 'friends'
   const [friend, setFriend] = useState(null); // Đang xem bản đồ của bạn: { profile, places }
+  const [story, setStory] = useState(null); // Xem lại dạng story: { title, places, returnTab }
+  const [poster, setPoster] = useState(null); // { status: 'working' | 'ready', url, blob, title }
+  const mapApi = useRef(null);
   const [external, setExternal] = useState(null); // Nơi của thành viên chuyến nhóm: { place, ownerName }
   const [notice, setNotice] = useState(null);
   const [friendsRefresh, setFriendsRefresh] = useState(0);
@@ -161,8 +210,20 @@ function Workspace({ user, theme, setTheme, dark }) {
       setPlaces(p);
       setTracks(t);
       setLoadError(null);
+      saveOffline(user.id, { places: p, tracks: t, at: Date.now() });
     } catch (e) {
-      setLoadError(`Không tải được dữ liệu: ${e.message}`);
+      // Mất mạng: dùng bản đã lưu lần tải trước
+      const saved = loadOffline(user.id);
+      if (!saved) {
+        setLoadError(`Không tải được dữ liệu: ${e.message}`);
+        return;
+      }
+      setPlaces(saved.places);
+      setTracks(saved.tracks);
+      setLoadError(null);
+      setNotice(
+        `Đang ngoại tuyến, hiện dữ liệu lưu lúc ${new Date(saved.at).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}.`,
+      );
     }
   }, [user.id]);
 
@@ -220,6 +281,10 @@ function Workspace({ user, theme, setTheme, dark }) {
           }
         : null,
     [scratchOn, regions, provinceKey, provinceSet],
+  );
+  const heat = useMemo(
+    () => (heatOn ? heatPoints(tracks, places) : null),
+    [heatOn, tracks, places],
   );
 
   // Khi xem bản đồ của bạn, bản đồ và thẻ xem nhanh dùng địa điểm của bạn đó
@@ -331,12 +396,53 @@ function Workspace({ user, theme, setTheme, dark }) {
     });
   }
 
-  const onMap = tab === "map" && !recordOpen && !detail;
-  const showTabBar = !recordOpen && !detail && !checkin;
+  // Tạo poster: đưa bản đồ về khung cần in (vùng vuông giữa màn hình vì poster cắt giữa), chụp rồi ghép chữ
+  async function makePoster({ title, label, stats, points }) {
+    if (!points.length) return;
+    setDetailId(null);
+    setStory(null);
+    setSelectedId(null);
+    setTab("map");
+    setPoster({ status: "working", title });
+    const extra = Math.max(0, (window.innerHeight - window.innerWidth) / 2);
+    setFocus({ bounds: bounds(points), padding: { top: extra, bottom: extra } });
+    try {
+      const shot = await mapApi.current.capture();
+      const blob = await drawPoster(shot, { title, label, stats, dark });
+      setPoster({ status: "ready", url: URL.createObjectURL(blob), blob, title });
+    } catch (e) {
+      setPoster(null);
+      setNotice(`Chưa tạo được poster: ${e.message}`);
+    }
+  }
+
+  function closePoster() {
+    if (poster?.url) URL.revokeObjectURL(poster.url);
+    setPoster(null);
+  }
+
+  function makeMyPoster() {
+    const visited = places.filter((p) => p.kind === "visited");
+    const km = tracks.reduce((s, t) => s + (t.distance_m || 0), 0);
+    makePoster({
+      title: "Hành trình của tôi",
+      label: `Bản đồ ${new Date().getFullYear()}`,
+      stats: [
+        ["Nơi đã đến", String(visited.length)],
+        ["Tỉnh, thành", provinceStats ? `${provinceStats.count}/${provinceStats.total}` : "—"],
+        ["Đi bộ", formatDistance(km)],
+      ],
+      points: [...visited.map((p) => [p.lng, p.lat]), ...tracks.flatMap((t) => t.points)],
+    });
+  }
+
+  const onMap = tab === "map" && !recordOpen && !detail && !story && !poster;
+  const showTabBar = !recordOpen && !detail && !checkin && !story && !poster;
 
   return (
     <div className="app">
       <MapView
+        ref={mapApi}
         key={dark ? "dark" : "light"}
         dark={dark}
         places={mapPlaces}
@@ -346,6 +452,7 @@ function Workspace({ user, theme, setTheme, dark }) {
         draft={checkin ? draft : null}
         focus={focus}
         scratch={onMap && !checkin && !friend ? scratch : null}
+        heat={onMap && !checkin && !friend ? heat : null}
         showLocate={onMap && !checkin}
         onLocate={handleLocate}
         onMapClick={handleMapClick}
@@ -365,6 +472,8 @@ function Workspace({ user, theme, setTheme, dark }) {
           stats={stats}
           scratchOn={scratchOn}
           onScratchToggle={() => setScratchOn(!scratchOn)}
+          heatOn={heatOn}
+          onHeatToggle={() => setHeatOn(!heatOn)}
           friendName={friend?.profile.display_name}
           onCloseFriend={closeFriend}
           selected={selected}
@@ -436,6 +545,11 @@ function Workspace({ user, theme, setTheme, dark }) {
           places={places}
           tracks={tracks}
           onDataChanged={reload}
+          onMakePoster={makePoster}
+          onPlayStory={(title, storyPlaces) => {
+            setStory({ title, places: storyPlaces, returnTab: tab });
+            setTab("map");
+          }}
           onOpenPlace={(place, ownerName) => {
             setExternal(ownerName ? { place, ownerName } : null);
             setDetailId(place.id);
@@ -461,6 +575,8 @@ function Workspace({ user, theme, setTheme, dark }) {
           userId={user.id}
           friendsRefresh={friendsRefresh}
           onViewFriend={viewFriend}
+          onMakePoster={makeMyPoster}
+          places={places}
           tracks={tracks}
           onChanged={reload}
           onShowTrack={(b) => {
@@ -489,6 +605,22 @@ function Workspace({ user, theme, setTheme, dark }) {
             setJournalQuery(`#${t}`);
             setDetailId(null);
             setTab("journal");
+          }}
+        />
+      )}
+
+      {poster && <PosterPreview poster={poster} onClose={closePoster} />}
+
+      {story && (
+        <StoryPlayer
+          title={story.title}
+          places={story.places}
+          onFocus={(f) =>
+            setFocus({ ...f, padding: { bottom: window.innerHeight * 0.48 } })
+          }
+          onClose={() => {
+            setTab(story.returnTab);
+            setStory(null);
           }}
         />
       )}

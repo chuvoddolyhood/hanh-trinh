@@ -6,6 +6,8 @@ import { usePhotoUrls } from '../hooks/usePhotoUrls';
 import { bounds, formatDistance } from '../lib/geo';
 import { formatDate } from '../lib/dates';
 import { placeSummary } from './moods';
+import StoryPlayer from './StoryPlayer';
+import Icon from './icons';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -15,6 +17,7 @@ export default function SharedTrip({ token, dark }) {
   const [data, setData] = useState(undefined); // undefined: đang tải; null: link sai hoặc đã tắt
   const [selectedId, setSelectedId] = useState(null);
   const [focus, setFocus] = useState(null);
+  const [storyOn, setStoryOn] = useState(false);
 
   useEffect(() => {
     if (!UUID.test(token)) {
@@ -81,6 +84,15 @@ export default function SharedTrip({ token, dark }) {
         onSelectPlace={(id) => pick(places.find((p) => p.id === id))}
         onMapClick={() => setSelectedId(null)}
       />
+      {storyOn && (
+        <StoryPlayer
+          title={trip.name}
+          places={places}
+          onFocus={(f) => setFocus({ ...f, padding: { bottom: window.innerHeight * 0.48 } })}
+          onClose={() => setStoryOn(false)}
+        />
+      )}
+      {!storyOn && (
       <section className="sheet shared-sheet" aria-label="Chuyến đi">
         <header className="screen-head shared-head">
           <span className="mono-label wide">{range}</span>
@@ -90,6 +102,12 @@ export default function SharedTrip({ token, dark }) {
           </span>
         </header>
         {trip.note && <p className="note">{trip.note}</p>}
+        {places.length > 0 && (
+          <button type="button" className="btn-pill btn-dark shared-story" onClick={() => setStoryOn(true)}>
+            <Icon name="play" size={16} />
+            {'Xem dạng story'}
+          </button>
+        )}
         <ul className="shared-places">
           {places.map((p, i) => (
             <li key={p.id}>
@@ -120,6 +138,7 @@ export default function SharedTrip({ token, dark }) {
         </ul>
         <a className="btn-link shared-cta" href="/">Tạo nhật ký hành trình của bạn</a>
       </section>
+      )}
     </div>
   );
 }

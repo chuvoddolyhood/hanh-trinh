@@ -3,7 +3,7 @@ import Icon from "./icons";
 import Polaroid from "./Polaroid";
 import { usePhotoUrls } from "../hooks/usePhotoUrls";
 import { matchPlace } from "../lib/text";
-import { seasonLabel } from "../lib/dates";
+import { seasonLabel, todayStr } from "../lib/dates";
 import { formatDistance } from "../lib/geo";
 import { placeSummary } from "./moods";
 
@@ -100,6 +100,8 @@ export default function Timeline({
             {provinceStats.countries.join(", ")}
           </p>
         )}
+
+        <Memories places={places} onSelect={onSelect} />
 
         <div className="chips">
           {KINDS.map((k) => (
@@ -273,5 +275,38 @@ function TimelineList({ items, urls, onSelect }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+// Những nơi đã đến vào đúng ngày này ở các năm trước
+function Memories({ places, onSelect }) {
+  const today = todayStr();
+  const items = places
+    .filter(
+      (p) =>
+        p.kind === "visited" &&
+        p.visited_at?.slice(5) === today.slice(5) &&
+        p.visited_at < today.slice(0, 4),
+    )
+    .sort((a, b) => b.visited_at.localeCompare(a.visited_at));
+  if (!items.length) return null;
+  const thisYear = Number(today.slice(0, 4));
+  return (
+    <section className="memories" aria-label="Ngày này năm trước">
+      <span className="mono-label wide">NGÀY NÀY NĂM TRƯỚC</span>
+      <ul className="results">
+        {items.map((p) => {
+          const years = thisYear - Number(p.visited_at.slice(0, 4));
+          return (
+            <li key={p.id}>
+              <button type="button" onClick={() => onSelect(p.id)}>
+                <strong>{p.name}</strong>
+                <span>{years === 1 ? "1 năm trước" : `${years} năm trước`}, {p.visited_at.slice(0, 4)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
