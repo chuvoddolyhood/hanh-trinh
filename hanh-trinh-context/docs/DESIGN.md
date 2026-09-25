@@ -101,6 +101,6 @@ Dark mode: style `dark` của OpenFreeMap (chưa hoàn thiện, cần chỉnh th
 | Ghi lộ trình (sáng/tối) | `docs/design/GhiLoTrinh.dc.html` | Đã thiết kế |
 | Chuyến đi, Tôi, Check-in | — | Chưa thiết kế |
 
-Đã chốt: màn hình Ghi lộ trình có "Tạm dừng" và "Mục tiêu hôm nay" (mặc định 5 km, chỉnh ở tab Tôi, lưu trên máy). Tab Chuyến đi gồm danh sách chuyến, chi tiết và phần chia sẻ; tab Tôi gồm giao diện sáng/tối, mục tiêu, vùng riêng tư, lộ trình đã lưu, nhập GPX, đăng xuất (cả hai chưa có mẫu thiết kế, dựng theo thành phần sẵn có). Ô "Tỉnh, thành" đếm theo 34 hoặc 63 tỉnh (chọn ở tab Tôi); số quốc gia hiện ở dòng dưới hàng thống kê. Scratch map tô tỉnh đã đến bằng `--accent` độ đục 0.28, không vẽ viền.
+Đã chốt: màn hình Ghi lộ trình có "Tạm dừng" và "Mục tiêu hôm nay" (mặc định 5 km, chỉnh ở tab Tôi, lưu trên máy). Tab Chuyến đi gồm danh sách chuyến, chi tiết và phần chia sẻ; tab Tôi gồm hồ sơ và bạn bè, giao diện sáng/tối, mức xem mặc định của check-in, mục tiêu, vùng riêng tư, lộ trình đã lưu, nhập GPX, đăng xuất (cả hai chưa có mẫu thiết kế, dựng theo thành phần sẵn có). Ô "Tỉnh, thành" đếm theo 34 hoặc 63 tỉnh (chọn ở tab Tôi); số quốc gia hiện ở dòng dưới hàng thống kê. Scratch map tô tỉnh đã đến bằng `--accent` độ đục 0.28, không vẽ viền.
 
 Lưu ý khi đọc file `.dc.html`: cú pháp `{{...}}`, `<x-dc>`, `<sc-if>`, `<dc-import>` là của công cụ thiết kế, không phải React. Chỉ lấy bố cục, màu, kích thước; dữ liệu trong mẫu (Hội An, 3,42 km...) là ví dụ.

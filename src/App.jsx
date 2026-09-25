@@ -76,13 +76,41 @@ export default function App() {
   }, []);
 
   if (!isConfigured) return <SetupNotice />;
-  // Link chia sẻ ?s=<token>: xem chuyến đi không cần đăng nhập
-  const shareToken = new URLSearchParams(window.location.search).get("s");
+  // Link chia sẻ /s/<token> (link cũ: ?s=<token>): xem chuyến đi không cần đăng nhập
+  const shareToken =
+    window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ??
+    new URLSearchParams(window.location.search).get("s");
   if (shareToken)
     return <SharedTrip token={shareToken} dark={themeState.dark} />;
   if (!authReady) return <div className="splash">Đang tải…</div>;
   if (!session) return <AuthScreen />;
   return <Workspace user={session.user} {...themeState} />;
+}
+
+// Link mời ?invite=<token>: lưu lại ngay khi mở trang, vì người mới phải đăng ký và
+// link xác nhận trong email quay về trang gốc, mất tham số trên URL
+const PENDING_INVITE = "hanh-trinh:pending-invite";
+let inviteParam = new URLSearchParams(window.location.search).get("invite");
+if (inviteParam) {
+  try {
+    localStorage.setItem(PENDING_INVITE, inviteParam);
+  } catch {
+    // Bị chặn lưu trữ: vẫn nhận được nếu đăng nhập ngay trên trang này
+  }
+  window.history.replaceState(null, "", window.location.pathname);
+}
+
+// Lấy một lần rồi xoá (StrictMode chạy effect hai lần)
+function takePendingInvite() {
+  let token = inviteParam;
+  inviteParam = null;
+  try {
+    token = localStorage.getItem(PENDING_INVITE) ?? token;
+    localStorage.removeItem(PENDING_INVITE);
+  } catch {
+    // Bị chặn lưu trữ: dùng giá trị trên URL
+  }
+  return token;
 }
 
 const TABS = [
@@ -114,6 +142,14 @@ function Workspace({ user, theme, setTheme, dark }) {
   ); // '34' | '63'
   const [scratchOn, setScratchOn] = useStored("hanh-trinh:scratch", false);
   const [regions, setRegions] = useState(null);
+  const [defaultVisibility, setDefaultVisibility] = useStored(
+    "hanh-trinh:default-visibility",
+    "private",
+  ); // 'private' | 'friends'
+  const [friend, setFriend] = useState(null); // Đang xem bản đồ của bạn: { profile, places }
+  const [external, setExternal] = useState(null); // Nơi của thành viên chuyến nhóm: { place, ownerName }
+  const [notice, setNotice] = useState(null);
+  const [friendsRefresh, setFriendsRefresh] = useState(0);
   const weatherAsked = useRef(false);
 
   // Hook ghi lộ trình đặt ở cấp cao nhất: vẫn ghi khi thu nhỏ màn hình Ghi
@@ -121,18 +157,38 @@ function Workspace({ user, theme, setTheme, dark }) {
 
   const reload = useCallback(async () => {
     try {
-      const [p, t] = await Promise.all([api.listPlaces(), api.listTracks()]);
+      const [p, t] = await Promise.all([api.listPlaces(user.id), api.listTracks(user.id)]);
       setPlaces(p);
       setTracks(t);
       setLoadError(null);
     } catch (e) {
       setLoadError(`Không tải được dữ liệu: ${e.message}`);
     }
-  }, []);
+  }, [user.id]);
 
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Link mời đã lưu lúc mở trang (xem PENDING_INVITE) → thành bạn bè với người mời; xoá trước để không nhận lại
+  useEffect(() => {
+    const token = takePendingInvite();
+    if (!token) return;
+    api
+      .acceptInvite(token)
+      .then((name) => {
+        setNotice(`Bạn và ${name} đã là bạn bè.`);
+        setFriendsRefresh((k) => k + 1);
+      })
+      .catch((e) => setNotice(e.message));
+  }, []);
+
+  // Thông báo tự ẩn sau 4 giây
+  useEffect(() => {
+    if (!notice) return undefined;
+    const id = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(id);
+  }, [notice]);
 
   // Tỉnh và quốc gia đã đến; lỗi tải ranh giới thì ô thống kê hiện "—"
   useEffect(() => {
@@ -166,13 +222,23 @@ function Workspace({ user, theme, setTheme, dark }) {
     [scratchOn, regions, provinceKey, provinceSet],
   );
 
-  const selected = places.find((p) => p.id === selectedId) ?? null;
-  const detail = places.find((p) => p.id === detailId) ?? null;
+  // Khi xem bản đồ của bạn, bản đồ và thẻ xem nhanh dùng địa điểm của bạn đó
+  const shownPlaces = friend ? friend.places : places;
+  const selected = shownPlaces.find((p) => p.id === selectedId) ?? null;
+  const detail =
+    places.find((p) => p.id === detailId) ??
+    friend?.places.find((p) => p.id === detailId) ??
+    (external?.place.id === detailId ? external.place : null);
+  const detailOwner =
+    detail && detail.user_id !== user.id
+      ? (friend?.profile.display_name ?? external?.ownerName ?? "bạn đồng hành")
+      : null;
   const editingId = checkin?.place?.id;
   // Đang sửa thì ẩn điểm cũ, chỉ hiện ghim nháp
   const mapPlaces = useMemo(
-    () => places.filter((p) => p.id !== editingId && matchPlace(p, mapQuery)),
-    [places, mapQuery, editingId],
+    () =>
+      shownPlaces.filter((p) => p.id !== editingId && matchPlace(p, mapQuery)),
+    [shownPlaces, mapQuery, editingId],
   );
   const stats = useMemo(
     () => ({
@@ -212,7 +278,31 @@ function Workspace({ user, theme, setTheme, dark }) {
       setRecordOpen(true);
       return;
     }
+    setFriend(null);
     setTab(id);
+  }
+
+  // Xem bản đồ của một người bạn: chỉ những nơi họ để mức "Bạn bè" (RLS lọc sẵn)
+  async function viewFriend(profile) {
+    try {
+      const friendPlaces = await api.listPlaces(profile.id);
+      setFriend({ profile, places: friendPlaces });
+      setSelectedId(null);
+      setMapQuery("");
+      setTab("map");
+      if (friendPlaces.length) {
+        setFocus({ bounds: bounds(friendPlaces.map((p) => [p.lng, p.lat])) });
+      } else {
+        setNotice(`${profile.display_name} chưa chia sẻ nơi nào với bạn bè.`);
+      }
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
+  function closeFriend() {
+    setFriend(null);
+    setSelectedId(null);
   }
 
   function showOnMap(place) {
@@ -250,12 +340,12 @@ function Workspace({ user, theme, setTheme, dark }) {
         key={dark ? "dark" : "light"}
         dark={dark}
         places={mapPlaces}
-        tracks={tracks}
+        tracks={friend ? [] : tracks}
         livePoints={tracker.points}
         selectedId={selectedId}
         draft={checkin ? draft : null}
         focus={focus}
-        scratch={onMap && !checkin ? scratch : null}
+        scratch={onMap && !checkin && !friend ? scratch : null}
         showLocate={onMap && !checkin}
         onLocate={handleLocate}
         onMapClick={handleMapClick}
@@ -275,6 +365,8 @@ function Workspace({ user, theme, setTheme, dark }) {
           stats={stats}
           scratchOn={scratchOn}
           onScratchToggle={() => setScratchOn(!scratchOn)}
+          friendName={friend?.profile.display_name}
+          onCloseFriend={closeFriend}
           selected={selected}
           onOpen={setDetailId}
           onCheckin={() => {
@@ -308,6 +400,7 @@ function Workspace({ user, theme, setTheme, dark }) {
               userId={user.id}
               place={checkin.place}
               tracks={tracks}
+              defaultVisibility={defaultVisibility}
               draft={draft}
               onDraftChange={setDraft}
               onFocus={(f) =>
@@ -339,9 +432,14 @@ function Workspace({ user, theme, setTheme, dark }) {
 
       {tab === "trips" && (
         <TripsScreen
+          userId={user.id}
           places={places}
           tracks={tracks}
-          onOpenPlace={setDetailId}
+          onDataChanged={reload}
+          onOpenPlace={(place, ownerName) => {
+            setExternal(ownerName ? { place, ownerName } : null);
+            setDetailId(place.id);
+          }}
           onShowOnMap={(b) => {
             setTab("map");
             setFocus({ bounds: b });
@@ -358,6 +456,11 @@ function Workspace({ user, theme, setTheme, dark }) {
           onGoalChange={setGoalKm}
           provinceSet={provinceSet}
           onProvinceSetChange={setProvinceSet}
+          defaultVisibility={defaultVisibility}
+          onDefaultVisibilityChange={setDefaultVisibility}
+          userId={user.id}
+          friendsRefresh={friendsRefresh}
+          onViewFriend={viewFriend}
           tracks={tracks}
           onChanged={reload}
           onShowTrack={(b) => {
@@ -371,7 +474,9 @@ function Workspace({ user, theme, setTheme, dark }) {
         <PlaceDetail
           key={detail.id}
           place={detail}
-          tracks={tracks}
+          tracks={detailOwner ? [] : tracks}
+          userId={user.id}
+          owner={detailOwner}
           onBack={() => setDetailId(null)}
           onDeleted={() => {
             setDetailId(null);
@@ -403,6 +508,11 @@ function Workspace({ user, theme, setTheme, dark }) {
       {loadError && (
         <p className="toast error" role="alert">
           {loadError}
+        </p>
+      )}
+      {!loadError && notice && (
+        <p className="toast" role="status">
+          {notice}
         </p>
       )}
 

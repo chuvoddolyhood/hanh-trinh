@@ -298,3 +298,448 @@ drop policy if exists "photos_bucket_shared" on storage.objects;
 create policy "photos_bucket_shared" on storage.objects
   for select to anon, authenticated
   using (bucket_id = 'photos' and private.is_shared_photo(name));
+
+-- =====================================================================
+-- Giai đoạn 2: hồ sơ, bạn bè, bình luận, thả tim
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- Hồ sơ: tên hiển thị và username (tuỳ chọn, dùng để tìm bạn)
+-- ---------------------------------------------------------------------
+create table if not exists public.profiles (
+  id            uuid primary key references auth.users on delete cascade,
+  username      text unique check (username ~ '^[a-z0-9_.]{3,30}$'),
+  display_name  text not null check (char_length(display_name) between 1 and 60),
+  created_at    timestamptz not null default now()
+);
+
+-- Link mời kết bạn: bảng riêng để người khác không đọc được token
+create table if not exists public.invites (
+  user_id  uuid primary key references public.profiles on delete cascade,
+  token    uuid not null unique default gen_random_uuid()
+);
+
+-- Quan hệ bạn bè: requester gửi, addressee chấp nhận. Mỗi cặp chỉ có một dòng (theo cả hai chiều).
+create table if not exists public.friendships (
+  requester   uuid not null references public.profiles on delete cascade,
+  addressee   uuid not null references public.profiles on delete cascade,
+  status      text not null default 'pending' check (status in ('pending', 'accepted')),
+  created_at  timestamptz not null default now(),
+  primary key (requester, addressee),
+  check (requester <> addressee)
+);
+
+create unique index if not exists friendships_pair_idx
+  on public.friendships (least(requester, addressee), greatest(requester, addressee));
+create index if not exists friendships_addressee_idx on public.friendships (addressee);
+
+-- Tạo hồ sơ và link mời khi có tài khoản mới; tên mặc định là phần trước @ của email
+create or replace function private.handle_new_user()
+returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (new.id, left(coalesce(nullif(split_part(new.email, '@', 1), ''), 'Bạn mới'), 60))
+  on conflict (id) do nothing;
+  insert into public.invites (user_id) values (new.id) on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+-- Trigger chạy dưới quyền supabase_auth_admin (dịch vụ Auth) nên role này cần thấy schema private
+grant usage on schema private to supabase_auth_admin;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function private.handle_new_user();
+
+-- Tài khoản đã có trước khi thêm bảng hồ sơ
+insert into public.profiles (id, display_name)
+select id, left(coalesce(nullif(split_part(email, '@', 1), ''), 'Bạn mới'), 60) from auth.users
+on conflict (id) do nothing;
+insert into public.invites (user_id) select id from public.profiles on conflict (user_id) do nothing;
+
+-- a và b đã là bạn (đã chấp nhận)
+create or replace function private.are_friends(a uuid, b uuid)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.friendships f
+    where f.status = 'accepted'
+      and ((f.requester = a and f.addressee = b) or (f.requester = b and f.addressee = a))
+  );
+$$;
+
+-- a và b có quan hệ nào đó (bạn bè hoặc lời mời đang chờ)
+create or replace function private.are_connected(a uuid, b uuid)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.friendships f
+    where (f.requester = a and f.addressee = b) or (f.requester = b and f.addressee = a)
+  );
+$$;
+
+-- ---------------------------------------------------------------------
+-- Địa điểm: thêm mức 'friends' (bạn bè xem được)
+-- ---------------------------------------------------------------------
+alter table public.places drop constraint if exists places_visibility_check;
+alter table public.places add constraint places_visibility_check
+  check (visibility in ('private', 'friends', 'unlisted', 'public'));
+
+-- ---------------------------------------------------------------------
+-- Bình luận và thả tim trên địa điểm (chỉ ai xem được địa điểm mới dùng được)
+-- ---------------------------------------------------------------------
+create table if not exists public.comments (
+  id          uuid primary key default gen_random_uuid(),
+  place_id    uuid not null references public.places on delete cascade,
+  user_id     uuid not null default auth.uid() references public.profiles on delete cascade,
+  body        text not null check (char_length(body) between 1 and 1000),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists comments_place_idx on public.comments (place_id, created_at);
+
+create table if not exists public.reactions (
+  place_id    uuid not null references public.places on delete cascade,
+  user_id     uuid not null default auth.uid() references public.profiles on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (place_id, user_id)
+);
+
+-- ---------------------------------------------------------------------
+-- RLS giai đoạn 2
+-- ---------------------------------------------------------------------
+alter table public.profiles enable row level security;
+alter table public.invites enable row level security;
+alter table public.friendships enable row level security;
+alter table public.comments enable row level security;
+alter table public.reactions enable row level security;
+
+-- Hồ sơ: của mình, người có quan hệ, và người bình luận ở nơi mình xem được
+drop policy if exists "profiles_select" on public.profiles;
+create policy "profiles_select" on public.profiles
+  for select to authenticated
+  using (
+    id = (select auth.uid())
+    or private.are_connected(id, (select auth.uid()))
+    or exists (select 1 from public.comments c where c.user_id = profiles.id)
+  );
+
+drop policy if exists "profiles_update" on public.profiles;
+create policy "profiles_update" on public.profiles
+  for update to authenticated
+  using (id = (select auth.uid()))
+  with check (id = (select auth.uid()));
+
+drop policy if exists "invites_owner" on public.invites;
+create policy "invites_owner" on public.invites
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+-- Lời mời được tạo qua RPC; người nhận chấp nhận bằng update, hai bên đều xoá được (từ chối, huỷ, huỷ kết bạn)
+drop policy if exists "friendships_select" on public.friendships;
+create policy "friendships_select" on public.friendships
+  for select to authenticated
+  using ((select auth.uid()) in (requester, addressee));
+
+drop policy if exists "friendships_accept" on public.friendships;
+create policy "friendships_accept" on public.friendships
+  for update to authenticated
+  using (addressee = (select auth.uid()))
+  with check (addressee = (select auth.uid()) and status = 'accepted');
+
+drop policy if exists "friendships_delete" on public.friendships;
+create policy "friendships_delete" on public.friendships
+  for delete to authenticated
+  using ((select auth.uid()) in (requester, addressee));
+
+-- Bạn bè xem được nơi đặt mức 'friends', trừ nơi nằm trong vùng riêng tư của chủ
+drop policy if exists "places_friends" on public.places;
+create policy "places_friends" on public.places
+  for select to authenticated
+  using (
+    visibility = 'friends'
+    and private.are_friends(user_id, (select auth.uid()))
+    and not private.in_privacy_zone(user_id, lng, lat)
+  );
+
+-- Ảnh của nơi mình xem được (RLS của places lọc sẵn trong truy vấn con)
+drop policy if exists "photos_visible" on public.photos;
+create policy "photos_visible" on public.photos
+  for select to authenticated
+  using (place_id in (select id from public.places));
+
+-- Storage: tạo signed URL cho ảnh mình xem được qua bảng photos
+drop policy if exists "photos_bucket_friends" on storage.objects;
+create policy "photos_bucket_friends" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'photos' and exists (select 1 from public.photos ph where ph.storage_path = objects.name));
+
+-- Bình luận, thả tim: xem và tạo trên nơi mình xem được; xoá của mình, hoặc chủ địa điểm xoá bình luận
+drop policy if exists "comments_select" on public.comments;
+create policy "comments_select" on public.comments
+  for select to authenticated
+  using (place_id in (select id from public.places));
+
+drop policy if exists "comments_insert" on public.comments;
+create policy "comments_insert" on public.comments
+  for insert to authenticated
+  with check (user_id = (select auth.uid()) and place_id in (select id from public.places));
+
+drop policy if exists "comments_delete" on public.comments;
+create policy "comments_delete" on public.comments
+  for delete to authenticated
+  using (
+    user_id = (select auth.uid())
+    or place_id in (select id from public.places where user_id = (select auth.uid()))
+  );
+
+drop policy if exists "reactions_select" on public.reactions;
+create policy "reactions_select" on public.reactions
+  for select to authenticated
+  using (place_id in (select id from public.places));
+
+drop policy if exists "reactions_insert" on public.reactions;
+create policy "reactions_insert" on public.reactions
+  for insert to authenticated
+  with check (user_id = (select auth.uid()) and place_id in (select id from public.places));
+
+drop policy if exists "reactions_delete" on public.reactions;
+create policy "reactions_delete" on public.reactions
+  for delete to authenticated
+  using (user_id = (select auth.uid()));
+
+-- ---------------------------------------------------------------------
+-- RPC kết bạn
+-- ---------------------------------------------------------------------
+
+-- Tìm đúng một người theo username (không liệt kê được danh sách người dùng)
+create or replace function public.find_profile(p_username text)
+returns table (id uuid, username text, display_name text)
+language sql stable security definer
+set search_path = public
+as $$
+  select p.id, p.username, p.display_name from public.profiles p
+  where p.username = lower(trim(leading '@' from trim(p_username)));
+$$;
+
+-- Gửi lời mời; nếu người kia đã mời mình trước thì thành bạn luôn. Trả về trạng thái mới.
+create or replace function public.request_friend(p_user uuid)
+returns text
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+begin
+  if me is null or p_user = me then raise exception 'Không thể kết bạn với chính mình'; end if;
+  update public.friendships set status = 'accepted'
+    where requester = p_user and addressee = me and status = 'pending';
+  if found then return 'accepted'; end if;
+  insert into public.friendships (requester, addressee) values (me, p_user)
+    on conflict do nothing;
+  return (select status from public.friendships
+          where least(requester, addressee) = least(me, p_user)
+            and greatest(requester, addressee) = greatest(me, p_user));
+end;
+$$;
+
+-- Nhận link mời: thành bạn ngay với chủ link. Trả về tên hiển thị của người mời.
+create or replace function public.accept_invite(p_token uuid)
+returns text
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  inviter uuid;
+begin
+  select user_id into inviter from public.invites where token = p_token;
+  if inviter is null then raise exception 'Link mời không tồn tại hoặc đã được đổi'; end if;
+  if inviter = me then raise exception 'Đây là link mời của chính bạn'; end if;
+  delete from public.friendships
+    where least(requester, addressee) = least(me, inviter)
+      and greatest(requester, addressee) = greatest(me, inviter);
+  insert into public.friendships (requester, addressee, status) values (inviter, me, 'accepted');
+  return (select display_name from public.profiles where id = inviter);
+end;
+$$;
+
+revoke all on function public.find_profile(text) from public;
+revoke all on function public.request_friend(uuid) from public;
+revoke all on function public.accept_invite(uuid) from public;
+grant execute on function public.find_profile(text) to authenticated;
+grant execute on function public.request_friend(uuid) to authenticated;
+grant execute on function public.accept_invite(uuid) to authenticated;
+
+-- Realtime cho bình luận và thả tim (bỏ qua nếu bảng đã có trong publication)
+do $$
+declare t text;
+begin
+  foreach t in array array['comments', 'reactions'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end;
+$$;
+
+-- =====================================================================
+-- Chuyến đi nhóm: chủ chuyến mời bạn bè; mỗi người tự chọn nơi, lộ trình
+-- của mình để chia sẻ với nhóm (cột trip_id). Link chia sẻ công khai vẫn
+-- chỉ gồm dữ liệu của chủ chuyến (shared_trip không đổi).
+-- =====================================================================
+create table if not exists public.trip_members (
+  trip_id   uuid not null references public.trips on delete cascade,
+  user_id   uuid not null references public.profiles on delete cascade,
+  added_at  timestamptz not null default now(),
+  primary key (trip_id, user_id)
+);
+
+create index if not exists trip_members_user_idx on public.trip_members (user_id);
+
+alter table public.places add column if not exists trip_id uuid references public.trips on delete set null;
+alter table public.tracks add column if not exists trip_id uuid references public.trips on delete set null;
+create index if not exists places_trip_idx on public.places (trip_id) where trip_id is not null;
+create index if not exists tracks_trip_idx on public.tracks (trip_id) where trip_id is not null;
+
+-- Để client lấy tên chủ chuyến bằng embed profiles (trips.user_id đã tham chiếu auth.users)
+alter table public.trips drop constraint if exists trips_owner_profile_fkey;
+alter table public.trips add constraint trips_owner_profile_fkey
+  foreign key (user_id) references public.profiles (id) on delete cascade;
+
+-- Người dùng là chủ hoặc thành viên của chuyến
+create or replace function private.in_trip(p_trip uuid, p_user uuid)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.trips t where t.id = p_trip and t.user_id = p_user)
+      or exists (select 1 from public.trip_members m where m.trip_id = p_trip and m.user_id = p_user);
+$$;
+
+-- a và b cùng ở một chuyến nhóm (để thấy tên nhau dù chưa là bạn)
+create or replace function private.share_trip(a uuid, b uuid)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.trips t
+    where (t.user_id = a or exists (select 1 from public.trip_members m where m.trip_id = t.id and m.user_id = a))
+      and (t.user_id = b or exists (select 1 from public.trip_members m where m.trip_id = t.id and m.user_id = b))
+      and exists (select 1 from public.trip_members m where m.trip_id = t.id)
+  );
+$$;
+
+alter table public.trip_members enable row level security;
+
+drop policy if exists "trips_member" on public.trips;
+create policy "trips_member" on public.trips
+  for select to authenticated
+  using (private.in_trip(id, (select auth.uid())));
+
+-- Thành viên: ai trong chuyến cũng xem được danh sách; chủ thêm (chỉ bạn bè) và xoá; thành viên tự rời được
+drop policy if exists "trip_members_select" on public.trip_members;
+create policy "trip_members_select" on public.trip_members
+  for select to authenticated
+  using (private.in_trip(trip_id, (select auth.uid())));
+
+drop policy if exists "trip_members_insert" on public.trip_members;
+create policy "trip_members_insert" on public.trip_members
+  for insert to authenticated
+  with check (
+    exists (select 1 from public.trips t where t.id = trip_id and t.user_id = (select auth.uid()))
+    and private.are_friends((select auth.uid()), user_id)
+  );
+
+drop policy if exists "trip_members_delete" on public.trip_members;
+create policy "trip_members_delete" on public.trip_members
+  for delete to authenticated
+  using (
+    user_id = (select auth.uid())
+    or exists (select 1 from public.trips t where t.id = trip_id and t.user_id = (select auth.uid()))
+  );
+
+-- Nơi, lộ trình đã chọn cho chuyến: hiện với mọi người trong chuyến, khi tác giả vẫn còn trong chuyến
+drop policy if exists "places_trip" on public.places;
+create policy "places_trip" on public.places
+  for select to authenticated
+  using (
+    trip_id is not null
+    and private.in_trip(trip_id, (select auth.uid()))
+    and private.in_trip(trip_id, user_id)
+    and not private.in_privacy_zone(user_id, lng, lat)
+  );
+
+drop policy if exists "tracks_trip" on public.tracks;
+create policy "tracks_trip" on public.tracks
+  for select to authenticated
+  using (
+    trip_id is not null
+    and private.in_trip(trip_id, (select auth.uid()))
+    and private.in_trip(trip_id, user_id)
+  );
+
+-- Chỉ gắn vào chuyến mình đang ở (restrictive: cộng thêm vào policy chủ sở hữu)
+drop policy if exists "places_trip_check_insert" on public.places;
+create policy "places_trip_check_insert" on public.places
+  as restrictive for insert to authenticated
+  with check (trip_id is null or private.in_trip(trip_id, (select auth.uid())));
+
+drop policy if exists "places_trip_check_update" on public.places;
+create policy "places_trip_check_update" on public.places
+  as restrictive for update to authenticated
+  with check (trip_id is null or private.in_trip(trip_id, (select auth.uid())));
+
+drop policy if exists "tracks_trip_check_insert" on public.tracks;
+create policy "tracks_trip_check_insert" on public.tracks
+  as restrictive for insert to authenticated
+  with check (trip_id is null or private.in_trip(trip_id, (select auth.uid())));
+
+drop policy if exists "tracks_trip_check_update" on public.tracks;
+create policy "tracks_trip_check_update" on public.tracks
+  as restrictive for update to authenticated
+  with check (trip_id is null or private.in_trip(trip_id, (select auth.uid())));
+
+-- Hồ sơ: thêm người cùng chuyến nhóm
+drop policy if exists "profiles_select" on public.profiles;
+create policy "profiles_select" on public.profiles
+  for select to authenticated
+  using (
+    id = (select auth.uid())
+    or private.are_connected(id, (select auth.uid()))
+    or private.share_trip(id, (select auth.uid()))
+    or exists (select 1 from public.comments c where c.user_id = profiles.id)
+  );
+
+-- Thành viên rời hoặc bị xoá khỏi chuyến → gỡ nơi, lộ trình của họ khỏi chuyến
+-- (nếu không, lần sửa sau sẽ bị policy restrictive chặn vì trip_id trỏ tới chuyến họ không còn ở)
+create or replace function private.detach_trip_items()
+returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  update public.places set trip_id = null where trip_id = old.trip_id and user_id = old.user_id;
+  update public.tracks set trip_id = null where trip_id = old.trip_id and user_id = old.user_id;
+  return old;
+end;
+$$;
+
+drop trigger if exists on_trip_member_removed on public.trip_members;
+create trigger on_trip_member_removed
+  after delete on public.trip_members
+  for each row execute function private.detach_trip_items();

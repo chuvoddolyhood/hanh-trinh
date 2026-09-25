@@ -6,7 +6,8 @@ import { formatDistance } from "../lib/geo";
 import { weatherWord } from "../lib/weather";
 import { placeSummary } from "./moods";
 
-// Các thành phần nổi trên màn hình Bản đồ: tìm kiếm, chip thời tiết/thống kê, nút Check-in, thẻ xem nhanh
+// Các thành phần nổi trên màn hình Bản đồ: tìm kiếm, chip thời tiết/thống kê, nút Check-in, thẻ xem nhanh.
+// friendName: đang xem bản đồ của bạn → thay tìm kiếm bằng thanh "Bản đồ của …", ẩn nút Check-in
 export default function MapOverlay({
   query,
   onQueryChange,
@@ -15,6 +16,8 @@ export default function MapOverlay({
   stats,
   scratchOn,
   onScratchToggle,
+  friendName,
+  onCloseFriend,
   selected,
   onOpen,
   onCheckin,
@@ -24,6 +27,24 @@ export default function MapOverlay({
 
   return (
     <>
+      {friendName && (
+        <div className="map-top">
+          <div className="map-search friend-bar">
+            <Icon name="users" size={20} />
+            <span className="friend-bar-name">Bản đồ của {friendName}</span>
+            <button
+              type="button"
+              className="round-btn plain"
+              onClick={onCloseFriend}
+              aria-label="Quay về bản đồ của tôi"
+            >
+              <Icon name="close" size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!friendName && (
       <div className="map-top">
         <form
           className="map-search"
@@ -63,15 +84,18 @@ export default function MapOverlay({
           </button>
         </div>
       </div>
+      )}
 
-      <button
-        type="button"
-        className={`checkin-fab${selected ? " has-card" : ""}`}
-        onClick={onCheckin}
-      >
-        <Icon name="plus" size={18} strokeWidth={2.2} />
-        {"Check-in"}
-      </button>
+      {!friendName && (
+        <button
+          type="button"
+          className={`checkin-fab${selected ? " has-card" : ""}`}
+          onClick={onCheckin}
+        >
+          <Icon name="plus" size={18} strokeWidth={2.2} />
+          {"Check-in"}
+        </button>
+      )}
 
       {selected && (
         <button

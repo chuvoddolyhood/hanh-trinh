@@ -9,17 +9,25 @@ import { locateByTime } from '../lib/geo';
 import { usePhotoUrls } from '../hooks/usePhotoUrls';
 import { MOODS } from './moods';
 
+const VISIBILITY = [
+  { id: 'private', label: 'Chỉ mình tôi' },
+  { id: 'friends', label: 'Bạn bè' },
+];
+
 /**
  * Tạo check-in mới, hoặc sửa check-in cũ khi có prop place. Vị trí lấy theo thứ tự ưu tiên:
  * chạm bản đồ / chọn kết quả tìm kiếm / GPS trong ảnh.
  */
-export default function CheckinForm({ userId, place = null, tracks = [], draft, onDraftChange, onFocus, onSaved }) {
+export default function CheckinForm({ userId, place = null, tracks = [], defaultVisibility = 'private', draft, onDraftChange, onFocus, onSaved }) {
   const [kind, setKind] = useState(place?.kind ?? 'visited');
   const [name, setName] = useState(place?.name ?? '');
   const [date, setDate] = useState(place?.visited_at ?? todayStr());
   const [mood, setMood] = useState(place?.mood ?? '');
   const [note, setNote] = useState(place?.note ?? '');
   const [tagsText, setTagsText] = useState(place?.tags.join(', ') ?? '');
+  const [visibility, setVisibility] = useState(place?.visibility ?? defaultVisibility);
+  const [tripId, setTripId] = useState(place?.trip_id ?? '');
+  const [groupTrips, setGroupTrips] = useState(null); // null: đang tải
   const [photos, setPhotos] = useState([]); // Ảnh mới: [{ id, file, gps, takenAt, preview }]
   const [removedIds, setRemovedIds] = useState([]); // Ảnh cũ bị bỏ khi sửa
   const oldPhotos = place?.photos ?? [];
@@ -48,6 +56,14 @@ export default function CheckinForm({ userId, place = null, tracks = [], draft, 
       .catch(() => {});
     return () => ctrl.abort();
   }, [draft]);
+
+  // Chuyến nhóm mình đang ở (của mình có thành viên, hoặc của người khác) để chọn chia sẻ nơi này
+  useEffect(() => {
+    api.listTrips()
+      .then((list) => setGroupTrips(list.filter((t) => t.user_id !== userId || t.members.length > 0)))
+      .catch(() => {});
+  }, [userId]);
+  const tripChoices = (groupTrips ?? []).filter((t) => kind === 'visited' && date >= t.start_date && date <= t.end_date);
 
   // Giải phóng URL xem trước khi rời form
   const photosRef = useRef(photos);
@@ -153,6 +169,10 @@ export default function CheckinForm({ userId, place = null, tracks = [], draft, 
         weather = await fetchDailyWeather(draft.lat, draft.lng, visitedAt).catch(() => null);
       }
 
+      // Chỉ gắn khi ngày đến nằm trong chuyến (đổi ngày ra ngoài thì gỡ); chưa tải xong danh sách chuyến → giữ nguyên
+      let nextTripId = place?.trip_id ?? null;
+      if (groupTrips !== null) nextTripId = tripChoices.some((t) => t.id === tripId) ? tripId : null;
+
       const save = place ? api.updatePlace : api.createPlace;
       const saved = await save(
         {
@@ -166,6 +186,8 @@ export default function CheckinForm({ userId, place = null, tracks = [], draft, 
           mood: kind === 'visited' ? mood || null : null,
           note: note.trim() || null,
           tags: parseTags(tagsText),
+          visibility,
+          trip_id: nextTripId,
           weather,
           photos,
         },
@@ -270,6 +292,27 @@ export default function CheckinForm({ userId, place = null, tracks = [], draft, 
         <span>Tag (cách nhau bằng dấu phẩy)</span>
         <input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="biển, cà phê, gia đình" />
       </label>
+
+      <fieldset>
+        <legend>Ai xem được</legend>
+        <div className="segmented" role="radiogroup" aria-label="Ai xem được">
+          {VISIBILITY.map((v) => (
+            <button type="button" key={v.id} role="radio" aria-checked={visibility === v.id} onClick={() => setVisibility(v.id)}>
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      {tripChoices.length > 0 && (
+        <label className="field">
+          <span>Chia sẻ vào chuyến nhóm</span>
+          <select value={tripId} onChange={(e) => setTripId(e.target.value)}>
+            <option value="">Không</option>
+            {tripChoices.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </label>
+      )}
 
       {/* Ảnh */}
       <fieldset className="stack-sm">

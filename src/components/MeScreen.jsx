@@ -5,6 +5,7 @@ import { parseGpxFile } from "../lib/gpx";
 import { bounds, formatDistance, formatDuration } from "../lib/geo";
 import { formatDate, toDateStr } from "../lib/dates";
 import Icon from "./icons";
+import FriendsSection from "./FriendsSection";
 
 const THEMES = [
   { id: "auto", label: "Tự động" },
@@ -12,12 +13,17 @@ const THEMES = [
   { id: "dark", label: "Tối" },
 ];
 
+const VISIBILITY = [
+  { id: "private", label: "Chỉ mình tôi" },
+  { id: "friends", label: "Bạn bè" },
+];
+
 const PROVINCE_SETS = [
   { id: "34", label: "34 tỉnh (từ 7/2025)" },
   { id: "63", label: "63 tỉnh (trước 7/2025)" },
 ];
 
-// Tab Tôi: cài đặt, lộ trình đã lưu, nhập GPX, đăng xuất
+// Tab Tôi: hồ sơ, bạn bè, cài đặt, lộ trình đã lưu, nhập GPX, đăng xuất
 export default function MeScreen({
   email,
   theme,
@@ -26,6 +32,11 @@ export default function MeScreen({
   onGoalChange,
   provinceSet,
   onProvinceSetChange,
+  defaultVisibility,
+  onDefaultVisibilityChange,
+  userId,
+  friendsRefresh,
+  onViewFriend,
   tracks,
   onChanged,
   onShowTrack,
@@ -95,6 +106,12 @@ export default function MeScreen({
           <span className="screen-sub">{email}</span>
         </header>
 
+        <FriendsSection
+          userId={userId}
+          onViewFriend={onViewFriend}
+          refreshKey={friendsRefresh}
+        />
+
         <section className="stack-sm">
           <h2 className="section-title">Giao diện</h2>
           <div className="chips">
@@ -107,6 +124,23 @@ export default function MeScreen({
                 onClick={() => onThemeChange(t.id)}
               >
                 {t.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="stack-sm">
+          <h2 className="section-title">Check-in mới mặc định cho</h2>
+          <div className="chips">
+            {VISIBILITY.map((v) => (
+              <button
+                type="button"
+                key={v.id}
+                className="chip"
+                aria-pressed={defaultVisibility === v.id}
+                onClick={() => onDefaultVisibilityChange(v.id)}
+              >
+                {v.label}
               </button>
             ))}
           </div>

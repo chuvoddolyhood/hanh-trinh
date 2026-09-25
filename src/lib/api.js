@@ -2,6 +2,15 @@ import { supabase, PHOTO_BUCKET } from './supabase';
 import { compressPhoto } from './photo';
 import { trackDistance } from './geo';
 
+const PROFILE = 'id, username, display_name';
+const PLACE =
+  'id, user_id, kind, name, lat, lng, visited_at, note, mood, weather, tags, visibility, trip_id, created_at, photos(id, storage_path, taken_at)';
+const TRACK = 'id, user_id, name, source, started_at, ended_at, distance_m, points, trip_id, created_at';
+// Chuyến kèm chủ và thành viên (chuyến nhóm)
+const TRIP = `id, user_id, name, start_date, end_date, tz, note, visibility, share_token,
+  owner:profiles!trips_owner_profile_fkey(${PROFILE}),
+  members:trip_members(profile:profiles(${PROFILE}))`;
+
 // Ném lỗi Supabase thành Error chuẩn để UI hiển thị
 function unwrap({ data, error }) {
   if (error) throw new Error(error.message);
@@ -10,11 +19,13 @@ function unwrap({ data, error }) {
 
 // ------------------------------- Địa điểm -------------------------------
 
-export async function listPlaces() {
+// Địa điểm của một người: RLS cho phép thấy cả nơi bạn bè chia sẻ nên luôn lọc theo userId
+export async function listPlaces(userId) {
   return unwrap(
     await supabase
       .from('places')
-      .select('id, kind, name, lat, lng, visited_at, note, mood, weather, tags, created_at, photos(id, storage_path, taken_at)')
+      .select(PLACE)
+      .eq('user_id', userId)
       .order('visited_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
   );
@@ -79,11 +90,12 @@ export async function getPhotoUrls(paths) {
 
 // ------------------------------- Lộ trình -------------------------------
 
-export async function listTracks() {
+export async function listTracks(userId) {
   return unwrap(
     await supabase
       .from('tracks')
-      .select('id, name, source, started_at, ended_at, distance_m, points, created_at')
+      .select(TRACK)
+      .eq('user_id', userId)
       .order('started_at', { ascending: false, nullsFirst: false }),
   );
 }
@@ -113,27 +125,46 @@ export async function deleteTrack(id) {
 
 // ------------------------------- Chuyến đi -------------------------------
 
+// Chuyến của mình và chuyến nhóm mình là thành viên (RLS)
 export async function listTrips() {
-  return unwrap(
-    await supabase
-      .from('trips')
-      .select('id, name, start_date, end_date, tz, note, visibility, share_token')
-      .order('start_date', { ascending: false }),
-  );
+  return unwrap(await supabase.from('trips').select(TRIP).order('start_date', { ascending: false }));
 }
 
 // Múi giờ của máy: server dùng để xếp lộ trình vào đúng ngày khi chia sẻ
 export async function createTrip(fields) {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return unwrap(await supabase.from('trips').insert({ tz, ...fields }).select().single());
+  return unwrap(await supabase.from('trips').insert({ tz, ...fields }).select(TRIP).single());
 }
 
 export async function updateTrip(id, fields) {
-  return unwrap(await supabase.from('trips').update(fields).eq('id', id).select().single());
+  return unwrap(await supabase.from('trips').update(fields).eq('id', id).select(TRIP).single());
 }
 
 export async function deleteTrip(id) {
   unwrap(await supabase.from('trips').delete().eq('id', id));
+}
+
+// Nơi, lộ trình mọi người trong chuyến đã chọn chia sẻ với nhóm
+export async function listTripItems(tripId) {
+  const [places, tracks] = await Promise.all([
+    supabase.from('places').select(PLACE).eq('trip_id', tripId),
+    supabase.from('tracks').select(TRACK).eq('trip_id', tripId),
+  ]);
+  return { places: unwrap(places), tracks: unwrap(tracks) };
+}
+
+// Gắn hoặc gỡ một nơi / lộ trình của mình khỏi chuyến nhóm (tripId null = gỡ)
+export async function setItemTrip(table, id, tripId) {
+  unwrap(await supabase.from(table).update({ trip_id: tripId }).eq('id', id));
+}
+
+export async function addTripMember(tripId, userId) {
+  unwrap(await supabase.from('trip_members').insert({ trip_id: tripId, user_id: userId }));
+}
+
+// Chủ xoá thành viên, hoặc thành viên tự rời chuyến
+export async function removeTripMember(tripId, userId) {
+  unwrap(await supabase.from('trip_members').delete().eq('trip_id', tripId).eq('user_id', userId));
 }
 
 // Dữ liệu chuyến được chia sẻ (không cần đăng nhập); null nếu link sai hoặc đã tắt
@@ -153,4 +184,119 @@ export async function createZone(fields) {
 
 export async function deleteZone(id) {
   unwrap(await supabase.from('privacy_zones').delete().eq('id', id));
+}
+
+// ------------------------------- Hồ sơ, bạn bè -------------------------------
+
+export async function getMyProfile(userId) {
+  const [profile, invite] = await Promise.all([
+    supabase.from('profiles').select(PROFILE).eq('id', userId).single(),
+    supabase.from('invites').select('token').eq('user_id', userId).single(),
+  ]);
+  return { ...unwrap(profile), inviteToken: unwrap(invite).token };
+}
+
+export async function updateProfile(userId, fields) {
+  const { data, error } = await supabase.from('profiles').update(fields).eq('id', userId).select(PROFILE).single();
+  if (error?.code === '23505') throw new Error('Username này đã có người dùng.');
+  if (error?.code === '23514') throw new Error('Username chỉ gồm chữ thường không dấu, số, dấu chấm, gạch dưới; 3–30 ký tự.');
+  return unwrap({ data, error });
+}
+
+// Đổi link mời: link cũ không dùng được nữa
+export async function renewInvite(userId) {
+  return unwrap(
+    await supabase.from('invites').update({ token: crypto.randomUUID() }).eq('user_id', userId).select('token').single(),
+  ).token;
+}
+
+export async function findProfile(username) {
+  return unwrap(await supabase.rpc('find_profile', { p_username: username }))[0] ?? null;
+}
+
+// Trả về 'pending' (đã gửi lời mời) hoặc 'accepted' (người kia đã mời mình trước → thành bạn)
+export async function requestFriend(userId) {
+  return unwrap(await supabase.rpc('request_friend', { p_user: userId }));
+}
+
+// Trả về tên người mời
+export async function acceptInvite(token) {
+  return unwrap(await supabase.rpc('accept_invite', { p_token: token }));
+}
+
+// → [{ profile, status, incoming }]: incoming = lời mời người khác gửi cho mình
+export async function listFriendships(userId) {
+  const rows = unwrap(
+    await supabase
+      .from('friendships')
+      .select(`requester, addressee, status, created_at,
+        from:profiles!friendships_requester_fkey(${PROFILE}),
+        to:profiles!friendships_addressee_fkey(${PROFILE})`)
+      .order('created_at', { ascending: false }),
+  );
+  return rows.map((r) => ({
+    profile: r.requester === userId ? r.to : r.from,
+    status: r.status,
+    incoming: r.addressee === userId,
+  }));
+}
+
+export async function acceptFriend(requesterId, userId) {
+  unwrap(
+    await supabase.from('friendships').update({ status: 'accepted' })
+      .eq('requester', requesterId).eq('addressee', userId),
+  );
+}
+
+// Từ chối, huỷ lời mời hoặc huỷ kết bạn
+export async function removeFriendship(a, b) {
+  unwrap(
+    await supabase.from('friendships').delete()
+      .or(`and(requester.eq.${a},addressee.eq.${b}),and(requester.eq.${b},addressee.eq.${a})`),
+  );
+}
+
+// --------------------------- Bình luận, thả tim ---------------------------
+
+export async function listComments(placeId) {
+  return unwrap(
+    await supabase
+      .from('comments')
+      .select(`id, body, created_at, user_id, author:profiles(${PROFILE})`)
+      .eq('place_id', placeId)
+      .order('created_at'),
+  );
+}
+
+export async function addComment(placeId, body) {
+  unwrap(await supabase.from('comments').insert({ place_id: placeId, body }));
+}
+
+export async function deleteComment(id) {
+  unwrap(await supabase.from('comments').delete().eq('id', id));
+}
+
+// → danh sách user_id đã thả tim
+export async function listReactions(placeId) {
+  return unwrap(await supabase.from('reactions').select('user_id').eq('place_id', placeId)).map((r) => r.user_id);
+}
+
+export async function setReaction(placeId, userId, on) {
+  if (on) unwrap(await supabase.from('reactions').upsert({ place_id: placeId, user_id: userId }));
+  else unwrap(await supabase.from('reactions').delete().eq('place_id', placeId).eq('user_id', userId));
+}
+
+// Nghe bình luận, thả tim của một địa điểm (Supabase Realtime, tôn trọng RLS). Trả về hàm huỷ.
+// Realtime không lọc được sự kiện DELETE và chỉ gửi khoá chính (payload.old) → onChange nhận cả DELETE
+// của nơi khác; nơi gọi tự kiểm tra old.place_id (reactions) hoặc old.id (comments).
+export function subscribePlace(placeId, onChange) {
+  const filter = `place_id=eq.${placeId}`;
+  const channel = supabase.channel(`place-${placeId}`);
+  for (const table of ['comments', 'reactions']) {
+    channel
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter }, onChange)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table }, onChange);
+  }
+  channel.subscribe();
+  return () => supabase.removeChannel(channel);
 }

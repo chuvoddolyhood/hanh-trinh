@@ -7,11 +7,13 @@ import { formatDateLong, toDateStr } from '../lib/dates';
 import { formatDistance } from '../lib/geo';
 import { weatherKind, weatherWord } from '../lib/weather';
 import { moodLabel } from './moods';
+import PlaceSocial from './PlaceSocial';
 
 const TILTS = [-4, 2, 5];
 
-// Chi tiết một địa điểm: quả cầu aura theo thời tiết, chỉ số, ảnh polaroid, ghi chú, tag
-export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOnMap, onEdit, onTagClick }) {
+// Chi tiết một địa điểm: quả cầu aura theo thời tiết, chỉ số, ảnh polaroid, ghi chú, tag, bình luận.
+// owner: tên chủ địa điểm khi xem nơi của bạn bè (chỉ xem, không sửa, xoá)
+export default function PlaceDetail({ place, tracks, userId, owner = null, onBack, onDeleted, onShowOnMap, onEdit, onTagClick }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const urls = usePhotoUrls(place.photos.map((p) => p.storage_path));
@@ -27,6 +29,9 @@ export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOn
       setDeleting(false);
     }
   }
+
+  let audience = place.visibility === 'friends' ? 'BẠN BÈ XEM ĐƯỢC' : 'CHỈ MÌNH BẠN';
+  if (owner) audience = `CỦA ${owner.toUpperCase()}`;
 
   const w = place.weather;
   const visited = place.kind === 'visited';
@@ -57,6 +62,9 @@ export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOn
         <header className="stack-xs">
           <h1 className="detail-name">{place.name}</h1>
           <span className="muted">{visited ? formatDateLong(place.visited_at) : 'Muốn đến'}</span>
+          <span className="mono-label">
+            {audience}
+          </span>
         </header>
 
         {visited && (
@@ -88,18 +96,24 @@ export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOn
         {place.tags.length > 0 && (
           <div className="tags">
             {place.tags.map((t) => (
-              <button type="button" key={t} className="tag" onClick={() => onTagClick(t)}>#{t}</button>
+              <button type="button" key={t} className="tag" onClick={() => onTagClick?.(t)} disabled={owner != null}>#{t}</button>
             ))}
           </div>
         )}
 
+        {/* Chỉ có người khác xem được khi để mức Bạn bè hoặc đã chia sẻ vào chuyến nhóm */}
+        {(place.visibility === 'friends' || place.trip_id) && <PlaceSocial placeId={place.id} userId={userId} isOwner={!owner} />}
+
         {error && <p className="error">{error}</p>}
 
-        <button type="button" className="btn-pill btn-outline" onClick={onEdit}>Sửa check-in, thêm ảnh</button>
-
-        <button type="button" className="btn-link danger" onClick={handleDelete} disabled={deleting}>
-          {deleting ? 'Đang xoá…' : 'Xoá địa điểm'}
-        </button>
+        {!owner && (
+          <>
+            <button type="button" className="btn-pill btn-outline" onClick={onEdit}>Sửa check-in, thêm ảnh</button>
+            <button type="button" className="btn-link danger" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Đang xoá…' : 'Xoá địa điểm'}
+            </button>
+          </>
+        )}
       </div>
     </article>
   );
