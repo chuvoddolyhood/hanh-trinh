@@ -66,7 +66,7 @@ flowchart TD
 | `trips` | Chuyến đi gom địa điểm và lộ trình theo khoảng ngày; mức chia sẻ và token link | 1 (đã có) |
 | `share_links` | Gộp vào `trips.share_token` (một link mỗi chuyến, đổi token để thu hồi) | — |
 | `privacy_zones` | Vùng riêng tư quanh nhà để cắt lộ trình khi chia sẻ | 1 (đã có) |
-| `provinces_63`, `provinces_34` | Ranh giới tỉnh trước/sau sáp nhập cho scratch map | 1 |
+| `provinces_63`, `provinces_34` | Thay bằng file tĩnh `public/geo/provinces.json` (63 tỉnh, mỗi tỉnh có tên tỉnh mới), tra cứu ở trình duyệt | — |
 | `friendships` | Lời mời và quan hệ bạn bè | 2 |
 | `trip_members` | Thành viên chuyến đi nhóm (owner, editor, viewer) | 2 |
 | `comments`, `reactions` | Bình luận, thả tim; chỉ bạn bè | 2 |
@@ -97,8 +97,8 @@ flowchart TD
 | 18 | Chuyến đi | Nhóm địa điểm và lộ trình thành chuyến đi | 1 | Đã xong |
 | 19 | Chia sẻ | Link chia sẻ riêng cho từng chuyến (riêng tư, không công khai, công khai) | 1 | Đã xong |
 | 20 | Quyền riêng tư | Vùng riêng tư: cắt đoạn lộ trình gần nhà khi chia sẻ | 1 | Đã xong |
-| 21 | Bản đồ | Scratch map tô màu tỉnh đã đến, chuyển đổi 63/34 tỉnh | 1 | Đang làm |
-| 22 | Thống kê | Số tỉnh và quốc gia đã đến | 1 | Đang làm |
+| 21 | Bản đồ | Scratch map tô màu tỉnh đã đến, chuyển đổi 63/34 tỉnh | 1 | Đã xong |
+| 22 | Thống kê | Số tỉnh và quốc gia đã đến | 1 | Đã xong |
 | 23 | Ảnh | Ghép ảnh không có GPS vào lộ trình theo thời gian chụp | 1 | Đã xong |
 | 24 | Vận hành | GitHub Actions giữ Supabase không bị tạm dừng | 1 | Đã xong |
 | 25 | Xã hội | Tài khoản cho bạn bè, lời mời kết bạn | 2 | Kế hoạch |

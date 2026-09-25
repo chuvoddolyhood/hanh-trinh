@@ -46,6 +46,7 @@ Chưa có lint hay test; kiểm tra bằng `npm run build` và chạy thử trê
 - **Chia sẻ:** URL `/?s=<share_token>` → `App` render `SharedTrip` trước khi kiểm tra đăng nhập. Dữ liệu lấy qua RPC `public.shared_trip` (security definer), đã bỏ nơi trong vùng riêng tư và cắt lộ trình ở server; ảnh xem được nhờ policy Storage `photos_bucket_shared`. Hàm phụ nằm trong schema `private` để PostgREST không mở ra ngoài.
 - **Địa điểm** có `kind` là `visited` hoặc `wishlist`; wishlist không có `visited_at`, `mood`. Cột `visibility` của `places`/`tracks` chưa dùng; chia sẻ dựa vào `trips.visibility`.
 - **Giao diện:** không có router. `MapView` luôn được mount và nằm dưới cùng; các màn hình (`.screen`: Nhật ký, Chuyến đi, Chi tiết, Ghi lộ trình, Tôi) phủ lên trên, điều khiển bằng state `tab`, `detailId`, `recordOpen`, `checkin` trong `Workspace`. Check-in là tấm dưới trên bản đồ; `checkin` là `null` hoặc `{ place }` (có `place` là đang sửa check-in cũ, dùng chung `CheckinForm`). Đổi sáng/tối thì remount `MapView` bằng `key` (style `liberty` được chỉnh màu hoặc style `dark`).
+- **Tỉnh, quốc gia:** `src/lib/regions.js` tra điểm trong đa giác từ `public/geo/*.json` (tạo bằng `scripts/build-geo.py`, không sửa tay), không lưu vào database. `App` tính `regions` mỗi khi `places` đổi; scratch map là layer `provinces-fill` trong `MapView`.
 - **Dark mode:** `App` đặt `data-theme` trên `<html>`; mọi màu là biến CSS trong `src/styles.css`. Màu trên bản đồ (layer MapLibre) nằm riêng trong `COLORS` của `MapView.jsx`, phải giữ khớp với biến CSS.
 
 ## Thư mục không thuộc mã nguồn

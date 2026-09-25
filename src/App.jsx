@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, isConfigured } from './lib/supabase';
-import * as api from './lib/api';
-import { matchPlace } from './lib/text';
-import { bounds } from './lib/geo';
-import { fetchCurrentWeather } from './lib/weather';
-import { useTracker } from './hooks/useTracker';
-import MapView from './components/MapView';
-import MapOverlay from './components/MapOverlay';
-import AuthScreen from './components/AuthScreen';
-import Timeline from './components/Timeline';
-import PlaceDetail from './components/PlaceDetail';
-import CheckinForm from './components/CheckinForm';
-import RecordScreen from './components/RecordScreen';
-import MeScreen from './components/MeScreen';
-import TripsScreen from './components/TripsScreen';
-import SharedTrip from './components/SharedTrip';
-import Icon from './components/icons';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase, isConfigured } from "./lib/supabase";
+import * as api from "./lib/api";
+import { matchPlace } from "./lib/text";
+import { bounds } from "./lib/geo";
+import { fetchCurrentWeather } from "./lib/weather";
+import { visitedRegions } from "./lib/regions";
+import { useTracker } from "./hooks/useTracker";
+import MapView from "./components/MapView";
+import MapOverlay from "./components/MapOverlay";
+import AuthScreen from "./components/AuthScreen";
+import Timeline from "./components/Timeline";
+import PlaceDetail from "./components/PlaceDetail";
+import CheckinForm from "./components/CheckinForm";
+import RecordScreen from "./components/RecordScreen";
+import MeScreen from "./components/MeScreen";
+import TripsScreen from "./components/TripsScreen";
+import SharedTrip from "./components/SharedTrip";
+import Icon from "./components/icons";
 
 // State lưu trên máy (localStorage); lỗi đọc/ghi thì dùng giá trị mặc định
 function useStored(key, initial) {
@@ -38,17 +39,20 @@ function useStored(key, initial) {
 
 // Chế độ tối: theo hệ điều hành khi chọn "Tự động", hoặc theo lựa chọn thủ công
 function useTheme() {
-  const [theme, setTheme] = useStored('hanh-trinh:theme', 'auto');
-  const query = useMemo(() => window.matchMedia('(prefers-color-scheme: dark)'), []);
+  const [theme, setTheme] = useStored("hanh-trinh:theme", "auto");
+  const query = useMemo(
+    () => window.matchMedia("(prefers-color-scheme: dark)"),
+    [],
+  );
   const [systemDark, setSystemDark] = useState(query.matches);
   useEffect(() => {
     const onChange = (e) => setSystemDark(e.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
   }, [query]);
-  const dark = theme === 'dark' || (theme === 'auto' && systemDark);
+  const dark = theme === "dark" || (theme === "auto" && systemDark);
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
   return { theme, setTheme, dark };
 }
@@ -65,29 +69,32 @@ export default function App() {
       setSession(data.session);
       setAuthReady(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    const { data } = supabase.auth.onAuthStateChange((_event, s) =>
+      setSession(s),
+    );
     return () => data.subscription.unsubscribe();
   }, []);
 
   if (!isConfigured) return <SetupNotice />;
   // Link chia sẻ ?s=<token>: xem chuyến đi không cần đăng nhập
-  const shareToken = new URLSearchParams(window.location.search).get('s');
-  if (shareToken) return <SharedTrip token={shareToken} dark={themeState.dark} />;
+  const shareToken = new URLSearchParams(window.location.search).get("s");
+  if (shareToken)
+    return <SharedTrip token={shareToken} dark={themeState.dark} />;
   if (!authReady) return <div className="splash">Đang tải…</div>;
   if (!session) return <AuthScreen />;
   return <Workspace user={session.user} {...themeState} />;
 }
 
 const TABS = [
-  { id: 'map', label: 'Bản đồ', icon: 'map' },
-  { id: 'journal', label: 'Nhật ký', icon: 'book' },
-  { id: 'record' },
-  { id: 'trips', label: 'Chuyến đi', icon: 'flag' },
-  { id: 'me', label: 'Tôi', icon: 'user' },
+  { id: "map", label: "Bản đồ", icon: "map" },
+  { id: "journal", label: "Nhật ký", icon: "book" },
+  { id: "record" },
+  { id: "trips", label: "Chuyến đi", icon: "flag" },
+  { id: "me", label: "Tôi", icon: "user" },
 ];
 
 function Workspace({ user, theme, setTheme, dark }) {
-  const [tab, setTab] = useState('map');
+  const [tab, setTab] = useState("map");
   const [recordOpen, setRecordOpen] = useState(false);
   const [places, setPlaces] = useState([]);
   const [tracks, setTracks] = useState([]);
@@ -97,10 +104,16 @@ function Workspace({ user, theme, setTheme, dark }) {
   const [checkin, setCheckin] = useState(null); // null | { place }: place có giá trị khi sửa check-in cũ
   const [draft, setDraft] = useState(null);
   const [focus, setFocus] = useState(null);
-  const [mapQuery, setMapQuery] = useState('');
-  const [journalQuery, setJournalQuery] = useState('');
+  const [mapQuery, setMapQuery] = useState("");
+  const [journalQuery, setJournalQuery] = useState("");
   const [weather, setWeather] = useState(null);
-  const [goalKm, setGoalKm] = useStored('hanh-trinh:goal-km', 5);
+  const [goalKm, setGoalKm] = useStored("hanh-trinh:goal-km", 5);
+  const [provinceSet, setProvinceSet] = useStored(
+    "hanh-trinh:province-set",
+    "34",
+  ); // '34' | '63'
+  const [scratchOn, setScratchOn] = useStored("hanh-trinh:scratch", false);
+  const [regions, setRegions] = useState(null);
   const weatherAsked = useRef(false);
 
   // Hook ghi lộ trình đặt ở cấp cao nhất: vẫn ghi khi thu nhỏ màn hình Ghi
@@ -117,7 +130,41 @@ function Workspace({ user, theme, setTheme, dark }) {
     }
   }, []);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // Tỉnh và quốc gia đã đến; lỗi tải ranh giới thì ô thống kê hiện "—"
+  useEffect(() => {
+    let alive = true;
+    visitedRegions(places)
+      .then((r) => alive && setRegions(r))
+      .catch(() => alive && setRegions(null));
+    return () => {
+      alive = false;
+    };
+  }, [places]);
+
+  const provinceKey = provinceSet === "63" ? "n63" : "n34";
+  const provinceStats = useMemo(
+    () =>
+      regions && {
+        count: regions[provinceSet === "63" ? "p63" : "p34"].size,
+        total: Number(provinceSet),
+        countries: [...regions.countries.values()],
+      },
+    [regions, provinceSet],
+  );
+  const scratch = useMemo(
+    () =>
+      scratchOn && regions
+        ? {
+            key: provinceKey,
+            names: [...regions[provinceSet === "63" ? "p63" : "p34"]],
+          }
+        : null,
+    [scratchOn, regions, provinceKey, provinceSet],
+  );
 
   const selected = places.find((p) => p.id === selectedId) ?? null;
   const detail = places.find((p) => p.id === detailId) ?? null;
@@ -129,7 +176,7 @@ function Workspace({ user, theme, setTheme, dark }) {
   );
   const stats = useMemo(
     () => ({
-      visited: places.filter((p) => p.kind === 'visited').length,
+      visited: places.filter((p) => p.kind === "visited").length,
       distance: tracks.reduce((sum, t) => sum + (t.distance_m || 0), 0),
     }),
     [places, tracks],
@@ -144,19 +191,24 @@ function Workspace({ user, theme, setTheme, dark }) {
     [checkin],
   );
 
-  const handleSelectPlace = useCallback((id) => {
-    if (!checkin) setSelectedId(id);
-  }, [checkin]);
+  const handleSelectPlace = useCallback(
+    (id) => {
+      if (!checkin) setSelectedId(id);
+    },
+    [checkin],
+  );
 
   // Lần đầu có vị trí → lấy thời tiết hiện tại cho chip trên bản đồ
   const handleLocate = useCallback(({ lat, lng }) => {
     if (weatherAsked.current) return;
     weatherAsked.current = true;
-    fetchCurrentWeather(lat, lng).then(setWeather).catch(() => {});
+    fetchCurrentWeather(lat, lng)
+      .then(setWeather)
+      .catch(() => {});
   }, []);
 
   function switchTab(id) {
-    if (id === 'record') {
+    if (id === "record") {
       setRecordOpen(true);
       return;
     }
@@ -165,7 +217,7 @@ function Workspace({ user, theme, setTheme, dark }) {
 
   function showOnMap(place) {
     setDetailId(null);
-    setTab('map');
+    setTab("map");
     setSelectedId(place.id);
     setFocus({ lng: place.lng, lat: place.lat, zoom: 16 });
   }
@@ -178,19 +230,24 @@ function Workspace({ user, theme, setTheme, dark }) {
   function editPlace(place) {
     setDetailId(null);
     setSelectedId(null);
-    setTab('map');
+    setTab("map");
     setCheckin({ place });
     setDraft({ lng: place.lng, lat: place.lat });
-    setFocus({ lng: place.lng, lat: place.lat, zoom: 16, padding: { bottom: window.innerHeight * 0.62 } });
+    setFocus({
+      lng: place.lng,
+      lat: place.lat,
+      zoom: 16,
+      padding: { bottom: window.innerHeight * 0.62 },
+    });
   }
 
-  const onMap = tab === 'map' && !recordOpen && !detail;
+  const onMap = tab === "map" && !recordOpen && !detail;
   const showTabBar = !recordOpen && !detail && !checkin;
 
   return (
     <div className="app">
       <MapView
-        key={dark ? 'dark' : 'light'}
+        key={dark ? "dark" : "light"}
         dark={dark}
         places={mapPlaces}
         tracks={tracks}
@@ -198,6 +255,7 @@ function Workspace({ user, theme, setTheme, dark }) {
         selectedId={selectedId}
         draft={checkin ? draft : null}
         focus={focus}
+        scratch={onMap && !checkin ? scratch : null}
         showLocate={onMap && !checkin}
         onLocate={handleLocate}
         onMapClick={handleMapClick}
@@ -209,33 +267,55 @@ function Workspace({ user, theme, setTheme, dark }) {
         <MapOverlay
           query={mapQuery}
           onQueryChange={setMapQuery}
-          onSearch={() => mapPlaces.length && setFocus({ bounds: bounds(mapPlaces.map((p) => [p.lng, p.lat])) })}
+          onSearch={() =>
+            mapPlaces.length &&
+            setFocus({ bounds: bounds(mapPlaces.map((p) => [p.lng, p.lat])) })
+          }
           weather={weather}
           stats={stats}
+          scratchOn={scratchOn}
+          onScratchToggle={() => setScratchOn(!scratchOn)}
           selected={selected}
           onOpen={setDetailId}
-          onCheckin={() => { setSelectedId(null); setCheckin({}); }}
+          onCheckin={() => {
+            setSelectedId(null);
+            setCheckin({});
+          }}
         />
       )}
 
       {onMap && checkin && (
         <>
-          {!draft && <div className="map-hint">Chạm lên bản đồ để ghim vị trí</div>}
+          {!draft && (
+            <div className="map-hint">Chạm lên bản đồ để ghim vị trí</div>
+          )}
           <section className="sheet" aria-label="Check-in">
             <div className="sheet-head">
-              <h2 className="sheet-title">{checkin.place ? 'Sửa check-in' : 'Check-in'}</h2>
-              <button type="button" className="round-btn plain" onClick={closeCheckin} aria-label="Đóng check-in">
+              <h2 className="sheet-title">
+                {checkin.place ? "Sửa check-in" : "Check-in"}
+              </h2>
+              <button
+                type="button"
+                className="round-btn plain"
+                onClick={closeCheckin}
+                aria-label="Đóng check-in"
+              >
                 <Icon name="close" size={20} />
               </button>
             </div>
             <CheckinForm
-              key={editingId ?? 'new'}
+              key={editingId ?? "new"}
               userId={user.id}
               place={checkin.place}
               tracks={tracks}
               draft={draft}
               onDraftChange={setDraft}
-              onFocus={(f) => setFocus({ ...f, padding: { bottom: window.innerHeight * 0.62 } })}
+              onFocus={(f) =>
+                setFocus({
+                  ...f,
+                  padding: { bottom: window.innerHeight * 0.62 },
+                })
+              }
               onSaved={async (place) => {
                 await reload();
                 closeCheckin();
@@ -246,35 +326,44 @@ function Workspace({ user, theme, setTheme, dark }) {
         </>
       )}
 
-      {tab === 'journal' && (
+      {tab === "journal" && (
         <Timeline
           places={places}
           tracks={tracks}
+          provinceStats={provinceStats}
           query={journalQuery}
           onQueryChange={setJournalQuery}
           onSelect={setDetailId}
         />
       )}
 
-      {tab === 'trips' && (
+      {tab === "trips" && (
         <TripsScreen
           places={places}
           tracks={tracks}
           onOpenPlace={setDetailId}
-          onShowOnMap={(b) => { setTab('map'); setFocus({ bounds: b }); }}
+          onShowOnMap={(b) => {
+            setTab("map");
+            setFocus({ bounds: b });
+          }}
         />
       )}
 
-      {tab === 'me' && (
+      {tab === "me" && (
         <MeScreen
           email={user.email}
           theme={theme}
           onThemeChange={setTheme}
           goalKm={goalKm}
           onGoalChange={setGoalKm}
+          provinceSet={provinceSet}
+          onProvinceSetChange={setProvinceSet}
           tracks={tracks}
           onChanged={reload}
-          onShowTrack={(b) => { setTab('map'); setFocus({ bounds: b }); }}
+          onShowTrack={(b) => {
+            setTab("map");
+            setFocus({ bounds: b });
+          }}
         />
       )}
 
@@ -284,10 +373,18 @@ function Workspace({ user, theme, setTheme, dark }) {
           place={detail}
           tracks={tracks}
           onBack={() => setDetailId(null)}
-          onDeleted={() => { setDetailId(null); setSelectedId(null); reload(); }}
+          onDeleted={() => {
+            setDetailId(null);
+            setSelectedId(null);
+            reload();
+          }}
           onShowOnMap={() => showOnMap(detail)}
           onEdit={() => editPlace(detail)}
-          onTagClick={(t) => { setJournalQuery(`#${t}`); setDetailId(null); setTab('journal'); }}
+          onTagClick={(t) => {
+            setJournalQuery(`#${t}`);
+            setDetailId(null);
+            setTab("journal");
+          }}
         />
       )}
 
@@ -295,23 +392,32 @@ function Workspace({ user, theme, setTheme, dark }) {
         <RecordScreen
           tracker={tracker}
           goalKm={goalKm}
-          onMinimize={() => { setRecordOpen(false); setTab('map'); }}
+          onMinimize={() => {
+            setRecordOpen(false);
+            setTab("map");
+          }}
           onSaved={reload}
         />
       )}
 
-      {loadError && <p className="toast error" role="alert">{loadError}</p>}
+      {loadError && (
+        <p className="toast error" role="alert">
+          {loadError}
+        </p>
+      )}
 
       {showTabBar && (
         <nav className="tabbar" aria-label="Điều hướng chính">
           {TABS.map((t) =>
-            t.id === 'record' ? (
+            t.id === "record" ? (
               <button
                 type="button"
                 key={t.id}
-                className={`tab-record${tracker.recording ? ' is-live' : ''}`}
-                onClick={() => switchTab('record')}
-                aria-label={tracker.recording ? 'Ghi lộ trình (đang ghi)' : 'Ghi lộ trình'}
+                className={`tab-record${tracker.recording ? " is-live" : ""}`}
+                onClick={() => switchTab("record")}
+                aria-label={
+                  tracker.recording ? "Ghi lộ trình (đang ghi)" : "Ghi lộ trình"
+                }
               >
                 <Icon name="route" size={26} strokeWidth={2} />
               </button>
@@ -320,7 +426,7 @@ function Workspace({ user, theme, setTheme, dark }) {
                 type="button"
                 key={t.id}
                 className="tab"
-                aria-current={tab === t.id ? 'page' : undefined}
+                aria-current={tab === t.id ? "page" : undefined}
                 onClick={() => switchTab(t.id)}
               >
                 <Icon name={t.icon} />
@@ -340,7 +446,11 @@ function SetupNotice() {
     <div className="auth">
       <div className="auth-card stack">
         <h1 className="brand">Hành trình</h1>
-        <p>Chưa cấu hình Supabase. Sao chép <code>.env.example</code> thành <code>.env</code>, điền URL và anon key, rồi chạy lại <code>npm run dev</code>.</p>
+        <p>
+          Chưa cấu hình Supabase. Sao chép <code>.env.example</code> thành{" "}
+          <code>.env</code>, điền URL và anon key, rồi chạy lại{" "}
+          <code>npm run dev</code>.
+        </p>
       </div>
     </div>
   );
