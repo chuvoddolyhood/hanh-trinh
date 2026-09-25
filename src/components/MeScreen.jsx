@@ -12,6 +12,7 @@ import { trackElevation } from "../lib/elevation";
 import Icon from "./icons";
 import FriendsSection from "./FriendsSection";
 import TimelineImport from "./TimelineImport";
+import PhotoImport from "./PhotoImport";
 import MemoriesPush from "./MemoriesPush";
 
 const THEMES = [
@@ -362,6 +363,14 @@ export default function MeScreen({
           </label>
           {message && <p className="notice">{message}</p>}
         </section>
+
+        <PhotoImport
+          userId={userId}
+          places={places}
+          tracks={tracks}
+          defaultVisibility={defaultVisibility}
+          onChanged={onChanged}
+        />
 
         <TimelineImport places={places} onChanged={onChanged} />
 

@@ -188,7 +188,7 @@ export default function Timeline({
             {places.length === 0 && (
               <p className="empty">
                 Chưa có địa điểm nào. Mở Bản đồ, bấm Check-in rồi chạm lên bản đồ để
-                ghim nơi đầu tiên.
+                ghim nơi đầu tiên, hoặc nhập ảnh cũ ở tab Tôi (Nhập ảnh từ album).
               </p>
             )}
             {places.length > 0 && filtered.length === 0 && (

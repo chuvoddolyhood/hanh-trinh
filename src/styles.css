@@ -770,6 +770,14 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Nhập ảnh hàng loạt */
+.import-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.import-list li { display: flex; align-items: center; gap: 10px; }
+.import-list li.is-off { opacity: 0.55; }
+.import-list img { flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: var(--line); }
+.import-body { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.import-list input[type='checkbox'] { flex-shrink: 0; width: 24px; height: 24px; margin: 10px; accent-color: var(--accent); }
+
 /* Sổ tay chuyến đi: lớp phủ trên màn hình, khi in chỉ in phần này (ẩn #root) */
 .book {
   position: fixed;

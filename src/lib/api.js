@@ -1,5 +1,5 @@
 import { supabase, PHOTO_BUCKET } from './supabase';
-import { compressPhoto, compressThumb, thumbPath } from './photo';
+import { compressPhoto, compressThumb, thumbPath, toJpegIfHeic } from './photo';
 import { trackDistance } from './geo';
 import { fetchDailyWeather } from './weather';
 import { todayStr } from './dates';
@@ -61,9 +61,10 @@ async function uploadPhotos(userId, placeId, photos, onProgress) {
     // Thư mục đầu tiên phải là userId để khớp policy Storage
     const path = `${userId}/${placeId}/${p.id ?? crypto.randomUUID()}.jpg`;
     if (saved.has(path)) continue;
-    // Ảnh gốc và ảnh nhỏ (thẻ, nhật ký dùng ảnh nhỏ cho nhanh)
-    await uploadJpeg(path, await compressPhoto(p.file));
-    await uploadJpeg(thumbPath(path), await compressThumb(p.file));
+    // Ảnh gốc và ảnh nhỏ (thẻ, nhật ký dùng ảnh nhỏ cho nhanh). HEIC chưa chuyển (nhập hàng loạt) → chuyển ở đây
+    const file = await toJpegIfHeic(p.file);
+    await uploadJpeg(path, await compressPhoto(file));
+    await uploadJpeg(thumbPath(path), await compressThumb(file));
     rows.push({
       place_id: placeId,
       storage_path: path,
@@ -94,6 +95,9 @@ export async function updatePlace({ userId, id, photos = [], removed = [], ...fi
   await uploadPhotos(userId, id, photos, onProgress);
   return place;
 }
+
+// Thêm ảnh vào địa điểm đã có (nhập ảnh hàng loạt trùng nơi cũ)
+export const addPhotos = (userId, placeId, photos, onProgress) => uploadPhotos(userId, placeId, photos, onProgress);
 
 export async function deletePlace(place) {
   const paths = (place.photos ?? []).map((p) => p.storage_path);
