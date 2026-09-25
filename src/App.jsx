@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, isConfigured } from "./lib/supabase";
 import * as api from "./lib/api";
 import { matchPlace } from "./lib/text";
-import { bounds, formatDistance, heatPoints, trackDistance } from "./lib/geo";
+import { bounds, formatDistance, haversine, heatPoints, trackDistance } from "./lib/geo";
 import { drawPoster } from "./lib/poster";
 import { fetchCurrentWeather } from "./lib/weather";
 import { visitedRegions } from "./lib/regions";
@@ -252,6 +252,8 @@ function Workspace({ user, theme, setTheme, dark }) {
   const [story, setStory] = useState(null); // Xem lại dạng story: { title, places, returnTab }
   const [recap, setRecap] = useState(null); // Tổng kết năm: { year, returnTab }
   const [plan, setPlan] = useState(null); // Kế hoạch chuyến đi trên bản đồ: { name, coords: [[lng, lat], ...] }
+  const [here, setHere] = useState(null); // Vị trí hiện tại { lat, lng } (chỉ khi đã cho phép định vị)
+  const [nearbyHidden, setNearbyHidden] = useState([]); // id nơi muốn đến đã ẩn nhắc trong phiên này
   const [poster, setPoster] = useState(null); // { status: 'working' | 'ready', url, blob, title }
   const mapApi = useRef(null);
   const [external, setExternal] = useState(null); // Nơi của thành viên chuyến nhóm: { place, ownerName }
@@ -414,12 +416,53 @@ function Workspace({ user, theme, setTheme, dark }) {
 
   // Lần đầu có vị trí → lấy thời tiết hiện tại cho chip trên bản đồ
   const handleLocate = useCallback(({ lat, lng }) => {
+    // Chỉ cập nhật khi đi xa hơn 50 m, tránh render lại liên tục lúc bản đồ theo dõi vị trí
+    setHere((prev) => (prev && haversine([prev.lng, prev.lat], [lng, lat]) < 50 ? prev : { lat, lng }));
     if (weatherAsked.current) return;
     weatherAsked.current = true;
     fetchCurrentWeather(lat, lng)
       .then(setWeather)
       .catch(() => {});
   }, []);
+
+  // Mở app mà đã cho phép định vị từ trước → lấy vị trí luôn (không bật hộp hỏi quyền)
+  useEffect(() => {
+    navigator.permissions
+      ?.query({ name: "geolocation" })
+      .then((st) => {
+        if (st.state !== "granted") return;
+        navigator.geolocation.getCurrentPosition(
+          (p) => handleLocate({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          () => {},
+          { maximumAge: 60000, timeout: 15000 },
+        );
+      })
+      .catch(() => {});
+  }, [handleLocate]);
+
+  // Nơi muốn đến gần nhất trong 500 m (bỏ nơi đã ẩn nhắc)
+  const nearby = useMemo(() => {
+    if (!here) return null;
+    let best = null;
+    for (const p of places) {
+      if (p.kind !== "wishlist" || p.pending || nearbyHidden.includes(p.id)) continue;
+      const distance = haversine([here.lng, here.lat], [p.lng, p.lat]);
+      if (distance <= 500 && (!best || distance < best.distance)) best = { place: p, distance };
+    }
+    return best;
+  }, [here, places, nearbyHidden]);
+
+  async function visitNearby() {
+    const { place } = nearby;
+    setNearbyHidden((ids) => [...ids, place.id]);
+    try {
+      await api.markVisited(place);
+      await reload();
+      setNotice(`Đã check-in ${place.name}.`);
+    } catch (e) {
+      setNotice(`Chưa check-in được: ${e.message}`);
+    }
+  }
 
   function switchTab(id) {
     if (id === "record") {
@@ -565,6 +608,9 @@ function Workspace({ user, theme, setTheme, dark }) {
           onCloseFriend={closeFriend}
           planName={plan?.name}
           onClosePlan={() => setPlan(null)}
+          nearby={friend ? null : nearby}
+          onNearbyVisit={visitNearby}
+          onNearbyDismiss={() => setNearbyHidden((ids) => [...ids, nearby.place.id])}
           selected={selected}
           onOpen={setDetailId}
           onCheckin={() => {

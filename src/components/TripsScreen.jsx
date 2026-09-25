@@ -3,7 +3,7 @@ import * as api from '../lib/api';
 import Icon from './icons';
 import { bounds, formatDistance, haversine } from '../lib/geo';
 import { formatDate, todayStr } from '../lib/dates';
-import { fetchDailyWeather, fetchForecast } from '../lib/weather';
+import { fetchForecast } from '../lib/weather';
 import { planOrder } from '../lib/plan';
 import { balances, settle, formatVnd } from '../lib/expenses';
 
@@ -436,9 +436,7 @@ function Plan({ trip, stops, choices, author, busy, run, reload, onOpenPlace, on
 
   function markVisited(p) {
     run(async () => {
-      const today = todayStr();
-      const weather = await fetchDailyWeather(p.lat, p.lng, today).catch(() => null);
-      await api.markVisited(p.id, today, weather);
+      await api.markVisited(p);
       await reload();
     }, `Đã check-in ${p.name}.`);
   }

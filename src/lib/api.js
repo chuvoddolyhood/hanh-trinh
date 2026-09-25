@@ -1,6 +1,8 @@
 import { supabase, PHOTO_BUCKET } from './supabase';
 import { compressPhoto, compressThumb, thumbPath } from './photo';
 import { trackDistance } from './geo';
+import { fetchDailyWeather } from './weather';
+import { todayStr } from './dates';
 
 const PROFILE = 'id, username, display_name';
 const PLACE =
@@ -196,9 +198,12 @@ export async function getSharedTrip(token) {
   return unwrap(await supabase.rpc('shared_trip', { p_token: token }));
 }
 
-// Nơi muốn đến → đã đến hôm nay (check-in một chạm từ kế hoạch); giữ trip_id để vẫn thuộc chuyến
-export async function markVisited(id, visitedAt, weather) {
-  unwrap(await supabase.from('places').update({ kind: 'visited', visited_at: visitedAt, weather }).eq('id', id));
+// Nơi muốn đến → đã đến hôm nay (check-in một chạm); giữ trip_id để vẫn thuộc chuyến.
+// Thời tiết là thông tin phụ: lỗi mạng thì bỏ qua
+export async function markVisited(place) {
+  const today = todayStr();
+  const weather = await fetchDailyWeather(place.lat, place.lng, today).catch(() => null);
+  unwrap(await supabase.from('places').update({ kind: 'visited', visited_at: today, weather }).eq('id', place.id));
 }
 
 // --------------------------- Chi phí chuyến đi ---------------------------

@@ -400,6 +400,8 @@ input::placeholder, textarea::placeholder { color: #8A7F73; }
   color: var(--muted);
   text-align: left;
 }
+.nearby-card { height: auto; min-height: 96px; gap: 8px; }
+.nearby-name { padding: 0; border: 0; background: none; text-align: left; }
 .quick-card-text { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
 .quick-card-name {
   overflow: hidden;

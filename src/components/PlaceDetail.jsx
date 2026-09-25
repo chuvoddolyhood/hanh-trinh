@@ -3,9 +3,9 @@ import * as api from '../lib/api';
 import Icon from './icons';
 import Polaroid from './Polaroid';
 import { usePhotoUrls } from '../hooks/usePhotoUrls';
-import { formatDateLong, toDateStr, todayStr } from '../lib/dates';
+import { formatDateLong, toDateStr } from '../lib/dates';
 import { formatDistance } from '../lib/geo';
-import { fetchDailyWeather, weatherKind, weatherWord } from '../lib/weather';
+import { weatherKind, weatherWord } from '../lib/weather';
 import { moodLabel } from './moods';
 import PlaceSocial from './PlaceSocial';
 
@@ -21,13 +21,11 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
   const thumbs = usePhotoUrls(paths, { thumb: true }); // Hiện trong khung polaroid
   const urls = usePhotoUrls(paths); // Ảnh gốc khi bấm mở
 
-  // Nơi muốn đến → đã đến hôm nay, một chạm (thời tiết lấy theo hôm nay; lỗi mạng thì bỏ qua thời tiết)
+  // Nơi muốn đến → đã đến hôm nay, một chạm
   async function markVisited() {
     setDeleting(true);
     try {
-      const today = todayStr();
-      const weather = await fetchDailyWeather(place.lat, place.lng, today).catch(() => null);
-      await api.markVisited(place.id, today, weather);
+      await api.markVisited(place);
       await onChanged();
     } catch (e) {
       setError(e.message);
