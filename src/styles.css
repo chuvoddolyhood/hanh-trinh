@@ -770,6 +770,14 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Bảng xếp hạng bạn bè */
+.leaderboard { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.leaderboard li { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); }
+.leaderboard li.is-me .track-name { color: var(--accent-text); }
+.leaderboard-rank { width: 24px; font: 400 22px var(--serif); text-align: center; }
+.leaderboard .track-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.leaderboard-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+
 /* Nhập ảnh hàng loạt */
 .import-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .import-list li { display: flex; align-items: center; gap: 10px; }

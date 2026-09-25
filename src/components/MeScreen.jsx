@@ -13,6 +13,7 @@ import Icon from "./icons";
 import FriendsSection from "./FriendsSection";
 import TimelineImport from "./TimelineImport";
 import PhotoImport from "./PhotoImport";
+import Leaderboard from "./Leaderboard";
 import MemoriesPush from "./MemoriesPush";
 
 const THEMES = [
@@ -147,6 +148,8 @@ export default function MeScreen({
           onViewFriend={onViewFriend}
           refreshKey={friendsRefresh}
         />
+
+        <Leaderboard userId={userId} />
 
         <section className="stack-sm">
           <h2 className="section-title">Giao diện</h2>

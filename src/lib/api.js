@@ -278,6 +278,20 @@ export async function updateProfile(userId, fields) {
   return unwrap({ data, error });
 }
 
+// Cài đặt lưu trên hồ sơ: { leaderboard, walk_reminder, goal_km }
+export async function getSettings(userId) {
+  return unwrap(await supabase.from('profiles').select('leaderboard, walk_reminder, goal_km').eq('id', userId).single());
+}
+
+export async function updateSettings(userId, fields) {
+  unwrap(await supabase.from('profiles').update(fields).eq('id', userId));
+}
+
+// Bảng xếp hạng: mình và bạn bè cùng tham gia (rỗng nếu mình chưa tham gia). year null = mọi năm
+export async function getLeaderboard(year) {
+  return unwrap(await supabase.rpc('friend_leaderboard', { p_year: year }));
+}
+
 // Đổi link mời: link cũ không dùng được nữa
 export async function renewInvite(userId) {
   return unwrap(
