@@ -67,9 +67,9 @@ flowchart TD
 | `share_links` | Gộp vào `trips.share_token` (một link mỗi chuyến, đổi token để thu hồi) | — |
 | `privacy_zones` | Vùng riêng tư quanh nhà để cắt lộ trình khi chia sẻ | 1 (đã có) |
 | `provinces_63`, `provinces_34` | Thay bằng file tĩnh `public/geo/provinces.json` (63 tỉnh, mỗi tỉnh có tên tỉnh mới), tra cứu ở trình duyệt | — |
-| `friendships` | Lời mời và quan hệ bạn bè | 2 |
-| `trip_members` | Thành viên chuyến đi nhóm (owner, editor, viewer) | 2 |
-| `comments`, `reactions` | Bình luận, thả tim; chỉ bạn bè | 2 |
+| `profiles`, `invites`, `friendships` | Hồ sơ (tên, username), link mời, lời mời và quan hệ bạn bè | 2 (đã có) |
+| `trip_members` | Thành viên chuyến đi nhóm (chưa chia vai trò: ai cũng chọn được mục của mình); `places.trip_id`, `tracks.trip_id` đánh dấu mục chia sẻ với nhóm | 2 (đã có) |
+| `comments`, `reactions` | Bình luận, thả tim; chỉ bạn bè | 2 (đã có) |
 
 ## Danh sách tính năng
 
@@ -101,12 +101,12 @@ flowchart TD
 | 22 | Thống kê | Số tỉnh và quốc gia đã đến | 1 | Đã xong |
 | 23 | Ảnh | Ghép ảnh không có GPS vào lộ trình theo thời gian chụp | 1 | Đã xong |
 | 24 | Vận hành | GitHub Actions giữ Supabase không bị tạm dừng | 1 | Đã xong |
-| 25 | Xã hội | Tài khoản cho bạn bè, lời mời kết bạn | 2 | Kế hoạch |
-| 26 | Xã hội | Mỗi người có bản đồ riêng | 2 | Kế hoạch |
-| 27 | Xã hội | Bình luận, thả tim (chỉ bạn bè), cập nhật tức thì | 2 | Kế hoạch |
-| 28 | Xã hội | Chuyến đi nhóm, cùng ghi chung | 2 | Kế hoạch |
+| 25 | Xã hội | Tài khoản cho bạn bè, lời mời kết bạn (link mời và @username) | 2 | Đã xong |
+| 26 | Xã hội | Mỗi người có bản đồ riêng; xem bản đồ của bạn (nơi đặt mức "Bạn bè") | 2 | Đã xong |
+| 27 | Xã hội | Bình luận, thả tim (chỉ bạn bè), cập nhật tức thì | 2 | Đã xong |
+| 28 | Xã hội | Chuyến đi nhóm: chủ mời bạn bè, mỗi người tự chọn nơi/lộ trình chia sẻ với nhóm | 2 | Đã xong |
 | 29 | Hạ tầng | Chuyển lưu ảnh sang Cloudflare R2 | 2 | Kế hoạch |
-| 30 | Chia sẻ | Ảnh xem trước (OG preview) cho link chia sẻ | 2 | Kế hoạch |
+| 30 | Chia sẻ | Ảnh xem trước (OG preview) cho link chia sẻ: link `/s/<token>`, ảnh bìa vẽ bằng @vercel/og | 2 | Đã xong |
 | 31 | Trình bày | Replay hành trình dạng story | 3 | Kế hoạch |
 | 32 | Trình bày | Xuất ảnh, poster bản đồ | 3 | Kế hoạch |
 | 33 | Tiện ích | Nhắc "ngày này năm trước" (pg_cron + Web Push) | 3 | Kế hoạch |

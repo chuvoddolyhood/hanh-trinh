@@ -18,6 +18,9 @@ Nhật ký du lịch trên bản đồ: check-in, ảnh có GPS, ghi lộ trình
 - Chuyến đi: gom nơi đã đến và lộ trình theo khoảng ngày
 - Link chia sẻ chuyến đi (`/?s=<token>`), xem không cần đăng nhập; đổi link để thu hồi link cũ
 - Vùng riêng tư: nơi và đoạn lộ trình trong vùng bị ẩn khi chia sẻ (cắt ở server)
+- Bạn bè: kết bạn bằng link mời hoặc @username; mỗi check-in chọn "Chỉ mình tôi" hoặc "Bạn bè"; xem bản đồ của bạn, thả tim và bình luận (cập nhật tức thì qua Supabase Realtime)
+- Chuyến đi nhóm: mời bạn bè vào chuyến, mỗi người tự chọn nơi và lộ trình của mình để chia sẻ với nhóm
+- Link chia sẻ dạng `/s/<token>` có ảnh bìa (tên chuyến, ngày, số km, ảnh polaroid) khi gửi qua Zalo, Facebook, Messenger
 - Scratch map tô tỉnh đã đến (nút "Tỉnh đã đến" trên bản đồ), đếm theo 34 hoặc 63 tỉnh (chọn ở tab Tôi); đếm số quốc gia đã đến
 
 ## Cài đặt
@@ -42,6 +45,8 @@ npm run dev               # mở http://localhost:5173
 ### 3. Deploy (Vercel Hobby, miễn phí)
 
 Import repo vào Vercel, framework chọn **Vite**, thêm 2 biến môi trường `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY`. Vercel tự deploy mỗi lần push; workflow `.github/workflows/build.yml` chỉ kiểm tra build trên PR và nhánh `main`.
+
+Link chia sẻ `/s/<token>` chạy qua Vercel Function (`api/share.js` chèn thẻ Open Graph, `api/og.js` vẽ ảnh bìa); hai function dùng chung 2 biến môi trường trên. Chạy `npm run dev` thì không có function nhưng link vẫn mở được (thiếu ảnh xem trước).
 
 ### 4. Giữ Supabase không bị tạm dừng
 

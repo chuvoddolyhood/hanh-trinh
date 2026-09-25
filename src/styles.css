@@ -684,6 +684,31 @@ a.btn-dark { color: var(--surface); }
 .shared-cta { margin-top: 16px; }
 
 /* =====================================================================
+   Bạn bè, bình luận
+   ===================================================================== */
+.friend-bar { color: var(--ink); padding-right: 4px; }
+.friend-bar-name { flex: 1; min-width: 0; overflow: hidden; font: 600 16px var(--serif); white-space: nowrap; text-overflow: ellipsis; }
+.friend-list li { border-left-color: var(--wishlist); }
+.social { padding-top: 16px; border-top: 1px solid var(--line); }
+.social-bar { align-items: center; gap: 14px; }
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  font: 600 14px var(--sans);
+}
+.like-btn.is-liked { border-color: var(--route); color: var(--route); }
+.like-btn.is-liked svg { fill: currentColor; }
+.comments { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.comment-head { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.comment-del { margin-left: auto; font-size: 13px; }
+
+/* =====================================================================
    Tôi
    ===================================================================== */
 .track-list li { display: flex; align-items: center; gap: 4px; border-left: 3px solid var(--route); }
