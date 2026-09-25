@@ -768,6 +768,16 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Huy hiệu (tab Tôi) */
+.badges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.badge { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.badge.is-done { border-color: var(--accent); }
+.badge-name { font: 600 16px/1.25 var(--serif); overflow-wrap: anywhere; }
+.badge.is-done .badge-state { color: var(--accent-text); }
+.badge:not(.is-done) .badge-name { color: var(--muted); }
+.badge-bar { display: block; height: 6px; margin-top: auto; border-radius: 3px; background: var(--line); overflow: hidden; }
+.badge-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #FFD37A, #FF8A3D 50%, #FF4D8D); }
+
 /* Tổng kết năm (dùng khung .story) */
 .recap-big { margin: 0; font: 400 64px/1.05 var(--serif); letter-spacing: -0.03em; overflow-wrap: anywhere; }
 .recap-bars { display: flex; gap: 4px; height: 88px; margin-top: 8px; }
@@ -809,7 +819,12 @@ a.btn-dark { color: var(--surface); }
 /* =====================================================================
    Tôi
    ===================================================================== */
-.track-list li { display: flex; align-items: center; gap: 4px; border-left: 3px solid var(--route); }
+.track-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; border-left: 3px solid var(--route); }
+.round-btn[aria-expanded='true'] svg { transform: rotate(180deg); }
+.elevation { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 0 0 12px 14px; }
+.elevation svg { display: block; width: 100%; height: 80px; }
+.elevation-area { fill: var(--route); opacity: 0.18; }
+.elevation-line { fill: none; stroke: var(--route); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .track-list li + li { margin-top: 4px; }
 .track-main { display: flex; flex: 1; flex-direction: column; min-height: 44px; padding: 8px 0 8px 14px; border: 0; background: none; text-align: left; }
 .track-name { font-weight: 600; }

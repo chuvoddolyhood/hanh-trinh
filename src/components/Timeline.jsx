@@ -61,7 +61,7 @@ export default function Timeline({
 
   // Theo mọi nơi (không theo kết quả lọc) để gõ tìm kiếm không phải xin lại URL ảnh
   const covers = places.map((p) => p.photos[0]?.storage_path).filter(Boolean);
-  const urls = usePhotoUrls(covers);
+  const urls = usePhotoUrls(covers, { thumb: true });
 
   const showSearch = searchOpen || query || from || to;
 

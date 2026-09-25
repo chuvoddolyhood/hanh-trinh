@@ -117,6 +117,10 @@ flowchart TD
 | 38 | Tiện ích | Check-in và lưu lộ trình khi mất mạng (hàng chờ IndexedDB), tự đồng bộ khi có mạng | 3 | Đã xong |
 | 39 | Tiện ích | Sao lưu dữ liệu: tải địa điểm (GeoJSON) và lộ trình (GPX) | 3 | Đã xong |
 | 40 | Trình bày | Tổng kết năm dạng story: số nơi, tỉnh mới, km, tháng đi nhiều nhất, dấu ấn | 3 | Đã xong |
+| 41 | Ảnh | Chuyển ảnh HEIC sang JPEG ngay trên máy (Chrome Android không đọc được HEIC) | 3 | Đã xong |
+| 42 | Ảnh | Ảnh nhỏ 400px tạo lúc upload, dùng cho thẻ, nhật ký, story; ảnh gốc chỉ khi mở xem | 3 | Đã xong |
+| 43 | Thống kê | Huy hiệu, cột mốc (số nơi, tỉnh, ba miền, km đi bộ, ảnh, quốc gia), tính ở máy | 3 | Đã xong |
+| 44 | Lộ trình | Độ cao lộ trình: biểu đồ lên xuống, tổng độ cao đã leo (Open-Meteo Elevation API) | 3 | Đã xong |
 
 ## Rủi ro và giới hạn kỹ thuật
 
@@ -127,7 +131,7 @@ flowchart TD
 | Supabase Free tạm dừng sau 7 ngày không hoạt động | Link chia sẻ không truy cập được | GitHub Actions gọi database định kỳ |
 | Dữ liệu ranh giới 34 tỉnh mới còn ít | Chậm scratch map | Kiểm tra nguồn và giấy phép trước |
 | Ảnh từ Zalo, Facebook mất EXIF | Không tự lấy được vị trí | Check-in thủ công; ghép ảnh vào lộ trình theo giờ chụp |
-| Chrome/Android không giải mã HEIC để nén | Upload ảnh iPhone lỗi trên Android | Safari thường tự chuyển sang JPEG; cân nhắc thư viện chuyển HEIC |
+| Chrome/Android không giải mã HEIC để nén | Upload ảnh iPhone lỗi trên Android | Đã xử lý: chuyển sang JPEG bằng heic-to lúc chọn ảnh (#41) |
 | Google siết API Photos, Timeline lưu trên thiết bị | Không nhập tự động được | Người dùng tự xuất file rồi upload |
 | Web Push iOS chỉ chạy khi đã thêm web vào màn hình chính | Nhắc kỷ niệm không tới | Hướng dẫn cài PWA |
 | Vercel Hobby, Open-Meteo chỉ miễn phí phi thương mại | Phải đổi gói nếu thu phí | Chuyển gói hoặc host khác |

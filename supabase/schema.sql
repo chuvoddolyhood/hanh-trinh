@@ -293,11 +293,12 @@ $$;
 revoke all on function public.shared_trip(uuid) from public;
 grant execute on function public.shared_trip(uuid) to anon, authenticated;
 
--- Người xem link chia sẻ (kể cả chưa đăng nhập) được tạo signed URL cho ảnh của chuyến đó
+-- Người xem link chia sẻ (kể cả chưa đăng nhập) được tạo signed URL cho ảnh của chuyến đó.
+-- Ảnh nhỏ <uuid>_t.jpg quy về ảnh gốc <uuid>.jpg để kiểm tra (bảng photos chỉ ghi ảnh gốc).
 drop policy if exists "photos_bucket_shared" on storage.objects;
 create policy "photos_bucket_shared" on storage.objects
   for select to anon, authenticated
-  using (bucket_id = 'photos' and private.is_shared_photo(name));
+  using (bucket_id = 'photos' and private.is_shared_photo(regexp_replace(name, '_t\.jpg$', '.jpg')));
 
 -- =====================================================================
 -- Giai đoạn 2: hồ sơ, bạn bè, bình luận, thả tim
@@ -478,11 +479,17 @@ create policy "photos_visible" on public.photos
   for select to authenticated
   using (place_id in (select id from public.places));
 
--- Storage: tạo signed URL cho ảnh mình xem được qua bảng photos
+-- Storage: tạo signed URL cho ảnh mình xem được qua bảng photos (ảnh nhỏ _t.jpg quy về ảnh gốc)
 drop policy if exists "photos_bucket_friends" on storage.objects;
 create policy "photos_bucket_friends" on storage.objects
   for select to authenticated
-  using (bucket_id = 'photos' and exists (select 1 from public.photos ph where ph.storage_path = objects.name));
+  using (
+    bucket_id = 'photos'
+    and exists (
+      select 1 from public.photos ph
+      where ph.storage_path = regexp_replace(objects.name, '_t\.jpg$', '.jpg')
+    )
+  );
 
 -- Bình luận, thả tim: xem và tạo trên nơi mình xem được; xoá của mình, hoặc chủ địa điểm xoá bình luận
 drop policy if exists "comments_select" on public.comments;

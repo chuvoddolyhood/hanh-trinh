@@ -87,6 +87,8 @@ App giữ màn hình sáng khi ghi. Lỡ tải lại trang thì lộ trình chư
 - **Nhắc "Ngày này năm trước"**: bấm **Bật thông báo** để nhận thông báo mỗi sáng.
 - **Lộ trình đã lưu**: chạm để xem trên bản đồ, bấm × để xoá.
 - **Tổng kết năm**: chọn một năm để xem lại dạng story (số nơi, tỉnh mới, km đi bộ, tháng đi nhiều nhất), rồi xem lại từng nơi hoặc tạo poster năm.
+- **Huy hiệu**: các cột mốc như 10 nơi, ba miền, 100 km đi bộ; chưa đạt thì hiện tiến độ.
+- **Độ cao lộ trình**: trong **Lộ trình đã lưu**, bấm mũi tên cạnh lộ trình để xem biểu đồ lên xuống và tổng độ cao đã leo.
 - **Sao lưu dữ liệu**: tải địa điểm (GeoJSON) và lộ trình (GPX) về máy. Chưa gồm ảnh.
 
 ## 8. Việc nên thử
@@ -104,12 +106,13 @@ App giữ màn hình sáng khi ghi. Lỡ tải lại trang thì lộ trình chư
 - [ ] Tắt mạng rồi mở app: vẫn xem được dữ liệu đã tải
 - [ ] Tắt mạng, check-in một nơi (kèm ảnh) và lưu một lộ trình; bật mạng lại, xem có tự đồng bộ không
 - [ ] Xem Tổng kết năm ở tab Tôi
+- [ ] Check-in bằng ảnh HEIC chụp từ iPhone, chọn trên máy Android
+- [ ] Xem huy hiệu và biểu đồ độ cao của một lộ trình
 - [ ] Tải bản sao lưu GPX và mở thử bằng app bản đồ khác
 
 ## 9. Lưu ý đã biết
 
 - **Ghi lộ trình khi khoá màn hình**: trình duyệt (nhất là iPhone) có thể ngừng lấy GPS. Hãy để màn hình sáng; đi đường dài nên ghi bằng app khác rồi nhập GPX.
-- **Ảnh HEIC từ iPhone** có thể lỗi khi tải lên từ máy Android.
 - **Thông báo trên iPhone** chỉ chạy khi đã thêm app vào màn hình chính (iOS 16.4 trở lên).
 - **Khi mất mạng**: check-in mới và lộ trình được lưu trên máy (hiện nhãn "Chờ đồng bộ"), tự gửi khi có mạng. Không tìm được địa điểm theo tên và chưa có thời tiết (tự điền khi đồng bộ). Sửa check-in cũ cần có mạng. Đăng xuất khi còn mục chờ sẽ xoá chúng.
 - Lần đầu mở sau nhiều ngày không ai dùng, app có thể tải chậm hoặc lỗi; thử lại sau 1–2 phút.

@@ -1,5 +1,5 @@
 import { supabase, PHOTO_BUCKET } from './supabase';
-import { compressPhoto } from './photo';
+import { compressPhoto, compressThumb, thumbPath } from './photo';
 import { trackDistance } from './geo';
 
 const PROFILE = 'id, username, display_name';
@@ -34,6 +34,19 @@ export async function listPlaces(userId) {
 // Nén và upload ảnh vào thư mục của địa điểm, rồi ghi bảng photos
 // photos: [{ id, file, gps, takenAt }]; onProgress(i, total) để hiển thị tiến độ upload
 // Tên file theo id ảnh: gửi lại (hàng chờ ngoại tuyến) thì bỏ qua ảnh đã ghi xong
+// 409: file đã lên ở lần gửi trước nhưng chưa kịp ghi bảng photos → coi như xong
+async function uploadJpeg(path, blob) {
+  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: false,
+  });
+  const duplicate = error && (String(error.statusCode) === '409' || error.status === 409 || error.code === 'Duplicate');
+  if (error && !duplicate) throw new Error(error.message);
+}
+
+// Đường dẫn ảnh gốc kèm ảnh nhỏ, để xoá cả hai (ảnh cũ chưa có ảnh nhỏ: Storage bỏ qua file không tồn tại)
+const withThumbs = (paths) => paths.flatMap((p) => [p, thumbPath(p)]);
+
 async function uploadPhotos(userId, placeId, photos, onProgress) {
   if (!photos.length) return;
   const saved = new Set(
@@ -46,14 +59,9 @@ async function uploadPhotos(userId, placeId, photos, onProgress) {
     // Thư mục đầu tiên phải là userId để khớp policy Storage
     const path = `${userId}/${placeId}/${p.id ?? crypto.randomUUID()}.jpg`;
     if (saved.has(path)) continue;
-    const blob = await compressPhoto(p.file);
-    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
-      contentType: 'image/jpeg',
-      upsert: false,
-    });
-    // 409: file đã lên ở lần gửi trước nhưng chưa kịp ghi bảng photos
-    const duplicate = error && (String(error.statusCode) === '409' || error.status === 409 || error.code === 'Duplicate');
-    if (error && !duplicate) throw new Error(error.message);
+    // Ảnh gốc và ảnh nhỏ (thẻ, nhật ký dùng ảnh nhỏ cho nhanh)
+    await uploadJpeg(path, await compressPhoto(p.file));
+    await uploadJpeg(thumbPath(path), await compressThumb(p.file));
     rows.push({
       place_id: placeId,
       storage_path: path,
@@ -78,7 +86,7 @@ export async function createPlace({ userId, photos = [], ...fields }, onProgress
 export async function updatePlace({ userId, id, photos = [], removed = [], ...fields }, onProgress) {
   const place = unwrap(await supabase.from('places').update(fields).eq('id', id).select().single());
   if (removed.length) {
-    unwrap(await supabase.storage.from(PHOTO_BUCKET).remove(removed.map((p) => p.storage_path)));
+    unwrap(await supabase.storage.from(PHOTO_BUCKET).remove(withThumbs(removed.map((p) => p.storage_path))));
     unwrap(await supabase.from('photos').delete().in('id', removed.map((p) => p.id)));
   }
   await uploadPhotos(userId, id, photos, onProgress);
@@ -88,7 +96,7 @@ export async function updatePlace({ userId, id, photos = [], removed = [], ...fi
 export async function deletePlace(place) {
   const paths = (place.photos ?? []).map((p) => p.storage_path);
   // Xoá file trước; bản ghi photos tự xoá theo ON DELETE CASCADE
-  if (paths.length) unwrap(await supabase.storage.from(PHOTO_BUCKET).remove(paths));
+  if (paths.length) unwrap(await supabase.storage.from(PHOTO_BUCKET).remove(withThumbs(paths)));
   unwrap(await supabase.from('places').delete().eq('id', place.id));
 }
 

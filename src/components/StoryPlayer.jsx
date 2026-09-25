@@ -16,7 +16,7 @@ export default function StoryPlayer({ title, places, onFocus, onClose }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   // Mỗi nơi chỉ hiện 3 ảnh đầu
-  const urls = usePhotoUrls(places.flatMap((p) => p.photos.slice(0, 3).map((ph) => ph.storage_path)));
+  const urls = usePhotoUrls(places.flatMap((p) => p.photos.slice(0, 3).map((ph) => ph.storage_path)), { thumb: true });
   const done = index >= places.length; // Màn kết thúc sau nơi cuối
   const place = places[index];
 

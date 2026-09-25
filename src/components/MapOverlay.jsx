@@ -25,7 +25,7 @@ export default function MapOverlay({
   onCheckin,
 }) {
   const cover = selected?.photos[0]?.storage_path;
-  const urls = usePhotoUrls(cover ? [cover] : []);
+  const urls = usePhotoUrls(cover ? [cover] : [], { thumb: true });
 
   return (
     <>

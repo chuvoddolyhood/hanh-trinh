@@ -34,6 +34,7 @@ Nhật ký du lịch trên bản đồ: check-in, ảnh có GPS, ghi lộ trình
 
 1. Tạo project miễn phí tại supabase.com.
 2. Vào **SQL Editor**, dán toàn bộ `supabase/schema.sql` và chạy. File chạy lại được nhiều lần; mỗi khi schema đổi, chạy lại toàn bộ.
+   Database đã dựng từ trước: chạy lần lượt các file trong `supabase/migrations/` (theo tên file) thay vì chạy lại toàn bộ; `20260925_anh-nho.sql` cho phép bạn bè và link chia sẻ xem ảnh nhỏ.
 3. Vào **Authentication → URL Configuration**:
    - Site URL: `http://localhost:5173` (đổi thành domain thật khi deploy)
    - Thêm domain deploy vào Redirect URLs.
@@ -82,7 +83,7 @@ Cần [Supabase CLI](https://supabase.com/docs/guides/cli). Thẻ "Ngày này n�
 - **GPS cần HTTPS.** `localhost` được miễn; muốn thử trên điện thoại hãy dùng bản deploy Vercel (có HTTPS sẵn).
 - **Ghi lộ trình trên web** chỉ ổn định khi màn hình mở. Lộ trình dài nên ghi bằng ứng dụng native (ví dụ OsmAnd) rồi nhập GPX.
 - **Email đăng nhập:** dịch vụ email mặc định của Supabase giới hạn số email mỗi giờ; đủ cho dùng cá nhân.
-- **Ảnh HEIC (iPhone):** Chrome/Android không giải mã được HEIC để nén. Trên iPhone, Safari thường tự chuyển sang JPEG khi chọn ảnh.
+- **Ảnh HEIC (iPhone):** được chuyển sang JPEG ngay trên máy bằng `heic-to` (tải thêm ~730 KB gzip, chỉ khi gặp ảnh HEIC); ảnh rất lớn có thể chậm trên máy yếu.
 - **Supabase Free** tạm dừng project sau 7 ngày không hoạt động (xem mục 4 ở trên).
 - **Chuyến đi** gom theo khoảng ngày, chưa bỏ riêng được một nơi khỏi chuyến. Muốn giấu nơi nào khi chia sẻ thì đặt vùng riêng tư.
 - **Mất mạng:** mở được app, xem nơi, lộ trình, ảnh và vùng bản đồ đã xem trước đó; chưa check-in hay ghi lộ trình khi offline được. Đăng xuất sẽ xoá dữ liệu, ảnh đã lưu trên máy.

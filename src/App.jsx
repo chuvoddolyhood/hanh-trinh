@@ -657,6 +657,7 @@ function Workspace({ user, theme, setTheme, dark }) {
           }}
           places={places}
           tracks={tracks}
+          regions={regions}
           pendingCount={outbox.length}
           onDiscardPending={discardPending}
           onChanged={reload}
