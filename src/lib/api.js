@@ -20,17 +20,16 @@ export async function listPlaces() {
   );
 }
 
+// Nén và upload ảnh vào thư mục của địa điểm, rồi ghi bảng photos
 // photos: [{ file, gps, takenAt }]; onProgress(i, total) để hiển thị tiến độ upload
-export async function createPlace({ userId, photos = [], ...fields }, onProgress) {
-  const place = unwrap(await supabase.from('places').insert(fields).select().single());
-
+async function uploadPhotos(userId, placeId, photos, onProgress) {
   const rows = [];
   for (let i = 0; i < photos.length; i++) {
     onProgress?.(i + 1, photos.length);
     const p = photos[i];
     const blob = await compressPhoto(p.file);
     // Thư mục đầu tiên phải là userId để khớp policy Storage
-    const path = `${userId}/${place.id}/${crypto.randomUUID()}.jpg`;
+    const path = `${userId}/${placeId}/${crypto.randomUUID()}.jpg`;
     unwrap(
       await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
         contentType: 'image/jpeg',
@@ -38,15 +37,30 @@ export async function createPlace({ userId, photos = [], ...fields }, onProgress
       }),
     );
     rows.push({
-      place_id: place.id,
+      place_id: placeId,
       storage_path: path,
       taken_at: p.takenAt ? p.takenAt.toISOString() : null,
       lat: p.gps?.lat ?? null,
       lng: p.gps?.lng ?? null,
     });
   }
-
   if (rows.length) unwrap(await supabase.from('photos').insert(rows));
+}
+
+export async function createPlace({ userId, photos = [], ...fields }, onProgress) {
+  const place = unwrap(await supabase.from('places').insert(fields).select().single());
+  await uploadPhotos(userId, place.id, photos, onProgress);
+  return place;
+}
+
+// Sửa check-in: cập nhật thông tin, xoá ảnh bị bỏ (removed: bản ghi photos cũ), thêm ảnh mới
+export async function updatePlace({ userId, id, photos = [], removed = [], ...fields }, onProgress) {
+  const place = unwrap(await supabase.from('places').update(fields).eq('id', id).select().single());
+  if (removed.length) {
+    unwrap(await supabase.storage.from(PHOTO_BUCKET).remove(removed.map((p) => p.storage_path)));
+    unwrap(await supabase.from('photos').delete().in('id', removed.map((p) => p.id)));
+  }
+  await uploadPhotos(userId, id, photos, onProgress);
   return place;
 }
 
@@ -95,4 +109,48 @@ export async function createTrack({ name, points, source }) {
 
 export async function deleteTrack(id) {
   unwrap(await supabase.from('tracks').delete().eq('id', id));
+}
+
+// ------------------------------- Chuyến đi -------------------------------
+
+export async function listTrips() {
+  return unwrap(
+    await supabase
+      .from('trips')
+      .select('id, name, start_date, end_date, tz, note, visibility, share_token')
+      .order('start_date', { ascending: false }),
+  );
+}
+
+// Múi giờ của máy: server dùng để xếp lộ trình vào đúng ngày khi chia sẻ
+export async function createTrip(fields) {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return unwrap(await supabase.from('trips').insert({ tz, ...fields }).select().single());
+}
+
+export async function updateTrip(id, fields) {
+  return unwrap(await supabase.from('trips').update(fields).eq('id', id).select().single());
+}
+
+export async function deleteTrip(id) {
+  unwrap(await supabase.from('trips').delete().eq('id', id));
+}
+
+// Dữ liệu chuyến được chia sẻ (không cần đăng nhập); null nếu link sai hoặc đã tắt
+export async function getSharedTrip(token) {
+  return unwrap(await supabase.rpc('shared_trip', { p_token: token }));
+}
+
+// ----------------------------- Vùng riêng tư -----------------------------
+
+export async function listZones() {
+  return unwrap(await supabase.from('privacy_zones').select('id, name, lat, lng, radius_m').order('created_at'));
+}
+
+export async function createZone(fields) {
+  return unwrap(await supabase.from('privacy_zones').insert(fields).select().single());
+}
+
+export async function deleteZone(id) {
+  unwrap(await supabase.from('privacy_zones').delete().eq('id', id));
 }

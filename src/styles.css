@@ -637,6 +637,48 @@ input::placeholder, textarea::placeholder { color: #8A7F73; }
 .record-actions { display: flex; gap: 12px; margin-top: auto; }
 
 /* =====================================================================
+   Chuyến đi
+   ===================================================================== */
+.trip-list, .shared-places { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.trip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+}
+.trip-actions { justify-content: space-between; margin-bottom: -8px; }
+.trip-title { font-size: 38px; overflow-wrap: anywhere; }
+a.btn-pill { color: inherit; text-decoration: none; }
+a.btn-dark { color: var(--surface); }
+
+/* Trang xem chuyến qua link chia sẻ */
+.shared-sheet { max-height: 50dvh; }
+.shared-head { padding: 16px 0 12px; }
+.shared-place {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--muted);
+  text-align: left;
+}
+.shared-place[aria-current='true'] { border-color: var(--accent); }
+.shared-more { display: flex; flex-direction: column; gap: 12px; padding: 12px 4px 0; }
+.shared-more .detail-photos { margin: 0 -20px; padding: 10px 20px 14px; }
+.shared-cta { margin-top: 16px; }
+
+/* =====================================================================
    Tôi
    ===================================================================== */
 .track-list li { display: flex; align-items: center; gap: 4px; border-left: 3px solid var(--route); }

@@ -13,6 +13,8 @@ import PlaceDetail from './components/PlaceDetail';
 import CheckinForm from './components/CheckinForm';
 import RecordScreen from './components/RecordScreen';
 import MeScreen from './components/MeScreen';
+import TripsScreen from './components/TripsScreen';
+import SharedTrip from './components/SharedTrip';
 import Icon from './components/icons';
 
 // State lưu trên máy (localStorage); lỗi đọc/ghi thì dùng giá trị mặc định
@@ -68,6 +70,9 @@ export default function App() {
   }, []);
 
   if (!isConfigured) return <SetupNotice />;
+  // Link chia sẻ ?s=<token>: xem chuyến đi không cần đăng nhập
+  const shareToken = new URLSearchParams(window.location.search).get('s');
+  if (shareToken) return <SharedTrip token={shareToken} dark={themeState.dark} />;
   if (!authReady) return <div className="splash">Đang tải…</div>;
   if (!session) return <AuthScreen />;
   return <Workspace user={session.user} {...themeState} />;
@@ -89,7 +94,7 @@ function Workspace({ user, theme, setTheme, dark }) {
   const [loadError, setLoadError] = useState(null);
   const [selectedId, setSelectedId] = useState(null); // Thẻ xem nhanh trên bản đồ
   const [detailId, setDetailId] = useState(null); // Màn hình chi tiết
-  const [checkin, setCheckin] = useState(false);
+  const [checkin, setCheckin] = useState(null); // null | { place }: place có giá trị khi sửa check-in cũ
   const [draft, setDraft] = useState(null);
   const [focus, setFocus] = useState(null);
   const [mapQuery, setMapQuery] = useState('');
@@ -116,7 +121,12 @@ function Workspace({ user, theme, setTheme, dark }) {
 
   const selected = places.find((p) => p.id === selectedId) ?? null;
   const detail = places.find((p) => p.id === detailId) ?? null;
-  const mapPlaces = useMemo(() => places.filter((p) => matchPlace(p, mapQuery)), [places, mapQuery]);
+  const editingId = checkin?.place?.id;
+  // Đang sửa thì ẩn điểm cũ, chỉ hiện ghim nháp
+  const mapPlaces = useMemo(
+    () => places.filter((p) => p.id !== editingId && matchPlace(p, mapQuery)),
+    [places, mapQuery, editingId],
+  );
   const stats = useMemo(
     () => ({
       visited: places.filter((p) => p.kind === 'visited').length,
@@ -161,8 +171,17 @@ function Workspace({ user, theme, setTheme, dark }) {
   }
 
   function closeCheckin() {
-    setCheckin(false);
+    setCheckin(null);
     setDraft(null);
+  }
+
+  function editPlace(place) {
+    setDetailId(null);
+    setSelectedId(null);
+    setTab('map');
+    setCheckin({ place });
+    setDraft({ lng: place.lng, lat: place.lat });
+    setFocus({ lng: place.lng, lat: place.lat, zoom: 16, padding: { bottom: window.innerHeight * 0.62 } });
   }
 
   const onMap = tab === 'map' && !recordOpen && !detail;
@@ -195,7 +214,7 @@ function Workspace({ user, theme, setTheme, dark }) {
           stats={stats}
           selected={selected}
           onOpen={setDetailId}
-          onCheckin={() => { setSelectedId(null); setCheckin(true); }}
+          onCheckin={() => { setSelectedId(null); setCheckin({}); }}
         />
       )}
 
@@ -204,13 +223,16 @@ function Workspace({ user, theme, setTheme, dark }) {
           {!draft && <div className="map-hint">Chạm lên bản đồ để ghim vị trí</div>}
           <section className="sheet" aria-label="Check-in">
             <div className="sheet-head">
-              <h2 className="sheet-title">Check-in</h2>
-              <button className="round-btn plain" onClick={closeCheckin} aria-label="Đóng check-in">
+              <h2 className="sheet-title">{checkin.place ? 'Sửa check-in' : 'Check-in'}</h2>
+              <button type="button" className="round-btn plain" onClick={closeCheckin} aria-label="Đóng check-in">
                 <Icon name="close" size={20} />
               </button>
             </div>
             <CheckinForm
+              key={editingId ?? 'new'}
               userId={user.id}
+              place={checkin.place}
+              tracks={tracks}
               draft={draft}
               onDraftChange={setDraft}
               onFocus={(f) => setFocus({ ...f, padding: { bottom: window.innerHeight * 0.62 } })}
@@ -235,16 +257,12 @@ function Workspace({ user, theme, setTheme, dark }) {
       )}
 
       {tab === 'trips' && (
-        <div className="screen">
-          <div className="screen-inner">
-            <header className="screen-head">
-              <span className="mono-label wide">SẮP CÓ</span>
-              <h1 className="screen-title">Chuyến đi</h1>
-              <span className="screen-sub">gom địa điểm và lộ trình thành một chuyến</span>
-            </header>
-            <p className="empty">Tính năng chuyến đi và link chia sẻ đang được làm.</p>
-          </div>
-        </div>
+        <TripsScreen
+          places={places}
+          tracks={tracks}
+          onOpenPlace={setDetailId}
+          onShowOnMap={(b) => { setTab('map'); setFocus({ bounds: b }); }}
+        />
       )}
 
       {tab === 'me' && (
@@ -268,6 +286,7 @@ function Workspace({ user, theme, setTheme, dark }) {
           onBack={() => setDetailId(null)}
           onDeleted={() => { setDetailId(null); setSelectedId(null); reload(); }}
           onShowOnMap={() => showOnMap(detail)}
+          onEdit={() => editPlace(detail)}
           onTagClick={(t) => { setJournalQuery(`#${t}`); setDetailId(null); setTab('journal'); }}
         />
       )}
@@ -288,6 +307,7 @@ function Workspace({ user, theme, setTheme, dark }) {
           {TABS.map((t) =>
             t.id === 'record' ? (
               <button
+                type="button"
                 key={t.id}
                 className={`tab-record${tracker.recording ? ' is-live' : ''}`}
                 onClick={() => switchTab('record')}
@@ -297,6 +317,7 @@ function Workspace({ user, theme, setTheme, dark }) {
               </button>
             ) : (
               <button
+                type="button"
                 key={t.id}
                 className="tab"
                 aria-current={tab === t.id ? 'page' : undefined}

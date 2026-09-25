@@ -91,7 +91,7 @@ export default function AuthScreen() {
               />
             </label>
           )}
-          <button className="btn btn-primary" disabled={busy}>
+          <button type="submit" className="btn btn-primary" disabled={busy}>
             {busy ? 'Đang xử lý…' : MODES[mode].submit}
           </button>
           {error && <p className="error" role="alert">{error}</p>}

@@ -11,7 +11,7 @@ import { moodLabel } from './moods';
 const TILTS = [-4, 2, 5];
 
 // Chi tiết một địa điểm: quả cầu aura theo thời tiết, chỉ số, ảnh polaroid, ghi chú, tag
-export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOnMap, onTagClick }) {
+export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOnMap, onEdit, onTagClick }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const urls = usePhotoUrls(place.photos.map((p) => p.storage_path));
@@ -38,10 +38,10 @@ export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOn
   return (
     <article className="screen detail">
       <div className="top-bar">
-        <button className="round-btn" onClick={onBack} aria-label="Quay lại">
+        <button type="button" className="round-btn" onClick={onBack} aria-label="Quay lại">
           <Icon name="back" size={20} strokeWidth={2} />
         </button>
-        <button className="round-btn" onClick={onShowOnMap} aria-label="Xem trên bản đồ">
+        <button type="button" className="round-btn" onClick={onShowOnMap} aria-label="Xem trên bản đồ">
           <Icon name="map" size={20} />
         </button>
       </div>
@@ -88,14 +88,16 @@ export default function PlaceDetail({ place, tracks, onBack, onDeleted, onShowOn
         {place.tags.length > 0 && (
           <div className="tags">
             {place.tags.map((t) => (
-              <button key={t} className="tag" onClick={() => onTagClick(t)}>#{t}</button>
+              <button type="button" key={t} className="tag" onClick={() => onTagClick(t)}>#{t}</button>
             ))}
           </div>
         )}
 
         {error && <p className="error">{error}</p>}
 
-        <button className="btn-link danger" onClick={handleDelete} disabled={deleting}>
+        <button type="button" className="btn-pill btn-outline" onClick={onEdit}>Sửa check-in, thêm ảnh</button>
+
+        <button type="button" className="btn-link danger" onClick={handleDelete} disabled={deleting}>
           {deleting ? 'Đang xoá…' : 'Xoá địa điểm'}
         </button>
       </div>

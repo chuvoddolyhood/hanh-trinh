@@ -336,7 +336,7 @@ export default function MapView({
     <>
       <div ref={containerRef} className="map" />
       {showLocate && (
-        <button className="map-btn map-locate" aria-label="Vị trí của tôi" onClick={() => geolocateRef.current?.trigger()}>
+        <button type="button" className="map-btn map-locate" aria-label="Vị trí của tôi" onClick={() => geolocateRef.current?.trigger()}>
           <Icon name="locate" size={22} />
         </button>
       )}

@@ -5,20 +5,25 @@ import { searchPlaces, reverseGeocode } from '../lib/geocode';
 import { fetchDailyWeather } from '../lib/weather';
 import { todayStr, toDateStr } from '../lib/dates';
 import { parseTags } from '../lib/text';
+import { locateByTime } from '../lib/geo';
+import { usePhotoUrls } from '../hooks/usePhotoUrls';
 import { MOODS } from './moods';
 
 /**
- * Tạo check-in mới. Vị trí lấy theo thứ tự ưu tiên:
+ * Tạo check-in mới, hoặc sửa check-in cũ khi có prop place. Vị trí lấy theo thứ tự ưu tiên:
  * chạm bản đồ / chọn kết quả tìm kiếm / GPS trong ảnh.
  */
-export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onSaved }) {
-  const [kind, setKind] = useState('visited');
-  const [name, setName] = useState('');
-  const [date, setDate] = useState(todayStr());
-  const [mood, setMood] = useState('');
-  const [note, setNote] = useState('');
-  const [tagsText, setTagsText] = useState('');
-  const [photos, setPhotos] = useState([]); // [{ id, file, gps, takenAt, preview }]
+export default function CheckinForm({ userId, place = null, tracks = [], draft, onDraftChange, onFocus, onSaved }) {
+  const [kind, setKind] = useState(place?.kind ?? 'visited');
+  const [name, setName] = useState(place?.name ?? '');
+  const [date, setDate] = useState(place?.visited_at ?? todayStr());
+  const [mood, setMood] = useState(place?.mood ?? '');
+  const [note, setNote] = useState(place?.note ?? '');
+  const [tagsText, setTagsText] = useState(place?.tags.join(', ') ?? '');
+  const [photos, setPhotos] = useState([]); // Ảnh mới: [{ id, file, gps, takenAt, preview }]
+  const [removedIds, setRemovedIds] = useState([]); // Ảnh cũ bị bỏ khi sửa
+  const oldPhotos = place?.photos ?? [];
+  const oldUrls = usePhotoUrls(oldPhotos.map((p) => p.storage_path));
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -29,8 +34,8 @@ export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onS
   const [hint, setHint] = useState('');
   const [error, setError] = useState(null);
 
-  // Người dùng đã tự gõ tên thì không ghi đè bằng tên gợi ý
-  const nameTouchedRef = useRef(false);
+  // Người dùng đã tự gõ tên (hoặc đang sửa check-in cũ) thì không ghi đè bằng tên gợi ý
+  const nameTouchedRef = useRef(Boolean(place));
 
   // Ghim thay đổi → gợi ý tên từ reverse geocoding
   useEffect(() => {
@@ -80,12 +85,19 @@ export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onS
     if (!files.length) return;
 
     const metas = await Promise.all(
-      files.map(async (file) => ({
-        id: crypto.randomUUID(),
-        file,
-        preview: URL.createObjectURL(file),
-        ...(await readPhotoMeta(file)),
-      })),
+      files.map(async (file) => {
+        const meta = await readPhotoMeta(file);
+        // Ảnh không có GPS nhưng có giờ chụp → lấy vị trí trên lộ trình đã ghi lúc đó
+        const fromTrack = !meta.gps && meta.takenAt ? locateByTime(tracks, meta.takenAt.getTime()) : null;
+        return {
+          id: crypto.randomUUID(),
+          file,
+          preview: URL.createObjectURL(file),
+          ...meta,
+          gps: meta.gps ?? fromTrack,
+          fromTrack: Boolean(fromTrack),
+        };
+      }),
     );
     setPhotos((prev) => [...prev, ...metas]);
 
@@ -95,14 +107,18 @@ export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onS
       onDraftChange(withGps.gps);
       onFocus({ ...withGps.gps, zoom: 16 });
     }
-    // Lấy ngày chụp sớm nhất làm ngày đến
+    // Lấy ngày chụp sớm nhất làm ngày đến (khi sửa thì giữ ngày đã lưu)
     const dates = metas.map((m) => m.takenAt).filter(Boolean).sort((a, b) => a - b);
-    if (dates.length) setDate(toDateStr(dates[0]));
+    if (dates.length && !place) setDate(toDateStr(dates[0]));
 
-    const gpsCount = metas.filter((m) => m.gps).length;
+    const gpsCount = metas.filter((m) => m.gps && !m.fromTrack).length;
+    const trackCount = metas.filter((m) => m.fromTrack).length;
     setHint(
-      gpsCount > 0
-        ? `${gpsCount}/${metas.length} ảnh có vị trí GPS.`
+      gpsCount + trackCount > 0
+        ? [
+          gpsCount > 0 && `${gpsCount}/${metas.length} ảnh có vị trí GPS.`,
+          trackCount > 0 && `${trackCount}/${metas.length} ảnh được lấy vị trí từ lộ trình theo giờ chụp.`,
+        ].filter(Boolean).join(' ')
         : 'Ảnh không có vị trí GPS (thường do ảnh tải từ Zalo, Facebook). Hãy chạm bản đồ để chọn vị trí.',
     );
   }
@@ -127,14 +143,21 @@ export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onS
       const visitedAt = kind === 'visited' ? date : null;
 
       // Thời tiết chỉ là thông tin phụ: lỗi mạng không chặn việc lưu
-      setProgress('Đang lấy thời tiết…');
-      const weather = visitedAt
-        ? await fetchDailyWeather(draft.lat, draft.lng, visitedAt).catch(() => null)
-        : null;
+      // Khi sửa mà không đổi ngày và vị trí thì giữ thời tiết cũ
+      const sameWeather =
+        place?.weather && place.visited_at === visitedAt && place.lat === draft.lat && place.lng === draft.lng;
+      let weather = null;
+      if (sameWeather) weather = place.weather;
+      else if (visitedAt) {
+        setProgress('Đang lấy thời tiết…');
+        weather = await fetchDailyWeather(draft.lat, draft.lng, visitedAt).catch(() => null);
+      }
 
-      const place = await api.createPlace(
+      const save = place ? api.updatePlace : api.createPlace;
+      const saved = await save(
         {
           userId,
+          ...(place && { id: place.id, removed: oldPhotos.filter((p) => removedIds.includes(p.id)) }),
           kind,
           name: name.trim(),
           lat: draft.lat,
@@ -148,7 +171,7 @@ export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onS
         },
         (i, total) => setProgress(`Đang tải ảnh ${i}/${total}…`),
       );
-      onSaved(place);
+      onSaved(saved);
     } catch (err) {
       setError(`Chưa lưu được: ${err.message}`);
     } finally {
@@ -252,16 +275,26 @@ export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onS
       <fieldset className="stack-sm">
         <legend>Ảnh</legend>
         <label className="btn file-btn">
-          Thêm ảnh
+          {'Thêm ảnh'}
           <input type="file" accept="image/*" multiple onChange={handlePhotos} hidden />
         </label>
-        {photos.length > 0 && (
+        {(photos.length > 0 || oldPhotos.length > removedIds.length) && (
           <ul className="thumbs">
+            {oldPhotos.filter((p) => !removedIds.includes(p.id)).map((p) => (
+              <li key={p.id}>
+                <img src={oldUrls[p.storage_path]} alt="" />
+                <button type="button" onClick={() => setRemovedIds((ids) => [...ids, p.id])} aria-label="Xoá ảnh này">×</button>
+              </li>
+            ))}
             {photos.map((p) => (
               <li key={p.id}>
                 {/* HEIC có thể không xem trước được trên Chrome nhưng vẫn upload được sau khi nén */}
                 <img src={p.preview} alt="" />
-                {p.gps && <span className="thumb-gps" title="Ảnh có GPS">GPS</span>}
+                {p.gps && (
+                  <span className="thumb-gps" title={p.fromTrack ? 'Vị trí lấy từ lộ trình' : 'Ảnh có GPS'}>
+                    {p.fromTrack ? 'LT' : 'GPS'}
+                  </span>
+                )}
                 <button type="button" onClick={() => removePhoto(p.id)} aria-label="Bỏ ảnh này">×</button>
               </li>
             ))}
@@ -272,8 +305,10 @@ export default function CheckinForm({ userId, draft, onDraftChange, onFocus, onS
       {hint && <p className="help">{hint}</p>}
       {error && <p className="error">{error}</p>}
 
-      <button className="btn btn-primary" disabled={saving}>
-        {saving ? progress || 'Đang lưu…' : kind === 'visited' ? 'Lưu check-in' : 'Thêm vào danh sách muốn đến'}
+      <button type="submit" className="btn btn-primary" disabled={saving}>
+        {saving && (progress || 'Đang lưu…')}
+        {!saving && place && 'Lưu thay đổi'}
+        {!saving && !place && (kind === 'visited' ? 'Lưu check-in' : 'Thêm vào danh sách muốn đến')}
       </button>
     </form>
   );

@@ -75,3 +75,22 @@ export function formatDuration(ms) {
   const pad = (n) => String(n).padStart(2, '0');
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
+
+// Vị trí trên lộ trình gần nhất với thời điểm ms (lệch tối đa toleranceMs) → {lat, lng} hoặc null.
+// Dùng để đoán vị trí cho ảnh không có GPS (ảnh từ Zalo, Facebook) theo giờ chụp.
+// ponytail: quét tuyến tính mọi điểm; đủ nhanh cho vài chục lộ trình, cần chỉ mục thời gian nếu nhiều hơn
+export function locateByTime(tracks, ms, toleranceMs = 10 * 60 * 1000) {
+  let best = null;
+  let bestDt = toleranceMs;
+  for (const t of tracks) {
+    for (const p of t.points) {
+      if (p[2] == null) continue;
+      const dt = Math.abs(p[2] - ms);
+      if (dt <= bestDt) {
+        bestDt = dt;
+        best = p;
+      }
+    }
+  }
+  return best && { lng: best[0], lat: best[1] };
+}

@@ -71,11 +71,12 @@ export default function Timeline({ places, tracks, onSelect, query, onQueryChang
 
         <div className="chips">
           {KINDS.map((k) => (
-            <button key={k.id} className="chip" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
+            <button type="button" key={k.id} className="chip" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
               {k.label}
             </button>
           ))}
           <button
+            type="button"
             className="chip chip-icon"
             aria-label="Tìm kiếm"
             aria-expanded={Boolean(showSearch)}
@@ -99,7 +100,7 @@ export default function Timeline({ places, tracks, onSelect, query, onQueryChang
               <label><span>Đến</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
             </div>
             {(query || from || to) && (
-              <button className="btn-link" onClick={() => { setQuery(''); setFrom(''); setTo(''); }}>
+              <button type="button" className="btn-link" onClick={() => { setQuery(''); setFrom(''); setTo(''); }}>
                 Xoá bộ lọc
               </button>
             )}
@@ -157,7 +158,7 @@ function TimelineList({ items, urls, onSelect }) {
       <ul className="timeline-items">
         {items.map((p, i) => (
           <li key={p.id} style={{ height: ROW_H[p.kind] }}>
-            <button className={`tl-entry${i % 2 ? ' is-flipped' : ''} tl-${p.kind}`} onClick={() => onSelect(p.id)}>
+            <button type="button" className={`tl-entry${i % 2 ? ' is-flipped' : ''} tl-${p.kind}`} onClick={() => onSelect(p.id)}>
               {p.kind === 'visited' && (
                 <Polaroid src={urls[p.photos[0]?.storage_path]} caption={p.tags[0]} tilt={i % 2 ? 3 : -3} />
               )}

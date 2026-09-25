@@ -63,9 +63,9 @@ flowchart TD
 | `places` | Địa điểm đã đến/muốn đến: toạ độ (cột PostGIS tự sinh), ngày, ghi chú, cảm xúc, thời tiết, tag, mức chia sẻ | 1 (đã có) |
 | `photos` | Ảnh gắn với địa điểm: đường dẫn Storage, thời điểm chụp, GPS gốc | 1 (đã có) |
 | `tracks` | Lộ trình: mảng điểm `[lng, lat, thời gian]` JSONB, quãng đường, nguồn | 1 (đã có) |
-| `trips` | Chuyến đi gom địa điểm và lộ trình | 1 |
-| `share_links` | Token chia sẻ theo chuyến đi | 1 |
-| `privacy_zones` | Vùng riêng tư quanh nhà để cắt lộ trình khi chia sẻ | 1 |
+| `trips` | Chuyến đi gom địa điểm và lộ trình theo khoảng ngày; mức chia sẻ và token link | 1 (đã có) |
+| `share_links` | Gộp vào `trips.share_token` (một link mỗi chuyến, đổi token để thu hồi) | — |
+| `privacy_zones` | Vùng riêng tư quanh nhà để cắt lộ trình khi chia sẻ | 1 (đã có) |
 | `provinces_63`, `provinces_34` | Ranh giới tỉnh trước/sau sáp nhập cho scratch map | 1 |
 | `friendships` | Lời mời và quan hệ bạn bè | 2 |
 | `trip_members` | Thành viên chuyến đi nhóm (owner, editor, viewer) | 2 |
@@ -92,15 +92,15 @@ flowchart TD
 | 13 | Lộ trình | Ghi GPS trực tiếp, giữ màn hình sáng, lọc nhiễu | 1 | Đã xong |
 | 14 | Lộ trình | Tự khôi phục lộ trình chưa lưu khi tab bị tải lại | 1 | Đã xong |
 | 15 | Lộ trình | Nhập file GPX từ ứng dụng khác | 1 | Đã xong |
-| 16 | Vận hành | Build, deploy Vercel, kiểm thử trên Android và iPhone | 1 | Đang làm |
-| 17 | Check-in | Sửa check-in, thêm ảnh vào địa điểm đã có | 1 | Đang làm |
-| 18 | Chuyến đi | Nhóm địa điểm và lộ trình thành chuyến đi | 1 | Đang làm |
-| 19 | Chia sẻ | Link chia sẻ riêng cho từng chuyến (riêng tư, không công khai, công khai) | 1 | Đang làm |
-| 20 | Quyền riêng tư | Vùng riêng tư: cắt đoạn lộ trình gần nhà khi chia sẻ | 1 | Đang làm |
+| 16 | Vận hành | Build, deploy Vercel, kiểm thử trên Android và iPhone | 1 | Đã deploy, còn kiểm thử máy thật |
+| 17 | Check-in | Sửa check-in, thêm ảnh vào địa điểm đã có | 1 | Đã xong |
+| 18 | Chuyến đi | Nhóm địa điểm và lộ trình thành chuyến đi | 1 | Đã xong |
+| 19 | Chia sẻ | Link chia sẻ riêng cho từng chuyến (riêng tư, không công khai, công khai) | 1 | Đã xong |
+| 20 | Quyền riêng tư | Vùng riêng tư: cắt đoạn lộ trình gần nhà khi chia sẻ | 1 | Đã xong |
 | 21 | Bản đồ | Scratch map tô màu tỉnh đã đến, chuyển đổi 63/34 tỉnh | 1 | Đang làm |
 | 22 | Thống kê | Số tỉnh và quốc gia đã đến | 1 | Đang làm |
-| 23 | Ảnh | Ghép ảnh không có GPS vào lộ trình theo thời gian chụp | 1 | Đang làm |
-| 24 | Vận hành | GitHub Actions giữ Supabase không bị tạm dừng | 1 | Đang làm |
+| 23 | Ảnh | Ghép ảnh không có GPS vào lộ trình theo thời gian chụp | 1 | Đã xong |
+| 24 | Vận hành | GitHub Actions giữ Supabase không bị tạm dừng | 1 | Đã xong |
 | 25 | Xã hội | Tài khoản cho bạn bè, lời mời kết bạn | 2 | Kế hoạch |
 | 26 | Xã hội | Mỗi người có bản đồ riêng | 2 | Kế hoạch |
 | 27 | Xã hội | Bình luận, thả tim (chỉ bạn bè), cập nhật tức thì | 2 | Kế hoạch |

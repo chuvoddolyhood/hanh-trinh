@@ -35,13 +35,13 @@ export default function MapOverlay({ query, onQueryChange, onSearch, weather, st
         </div>
       </div>
 
-      <button className={`checkin-fab${selected ? ' has-card' : ''}`} onClick={onCheckin}>
+      <button type="button" className={`checkin-fab${selected ? ' has-card' : ''}`} onClick={onCheckin}>
         <Icon name="plus" size={18} strokeWidth={2.2} />
-        Check-in
+        {'Check-in'}
       </button>
 
       {selected && (
-        <button className="quick-card" onClick={() => onOpen(selected.id)}>
+        <button type="button" className="quick-card" onClick={() => onOpen(selected.id)}>
           <Polaroid src={urls[cover]} tilt={-4} className="polaroid-sm" />
           <span className="quick-card-text">
             <span className="mono-label">

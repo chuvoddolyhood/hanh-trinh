@@ -101,6 +101,7 @@ export default function RecordScreen({ tracker, goalKm, onMinimize, onSaved }) {
 
       <div className="top-bar">
         <button
+          type="button"
           className="round-btn on-sky"
           onClick={onMinimize}
           aria-label={recording ? 'Thu nhỏ, vẫn tiếp tục ghi' : 'Đóng'}
@@ -164,27 +165,27 @@ export default function RecordScreen({ tracker, goalKm, onMinimize, onSaved }) {
 
         <div className="record-actions">
           {idle && (
-            <button className="btn-pill btn-dark" onClick={tracker.start}>
+            <button type="button" className="btn-pill btn-dark" onClick={tracker.start}>
               <span className="rec-square" aria-hidden="true" />
-              Bắt đầu ghi
+              {'Bắt đầu ghi'}
             </button>
           )}
           {recording && (
             <>
-              <button className="btn-pill btn-outline" onClick={paused ? tracker.resume : tracker.pause}>
+              <button type="button" className="btn-pill btn-outline" onClick={paused ? tracker.resume : tracker.pause}>
                 <Icon name={paused ? 'play' : 'pause'} size={18} />
                 {paused ? 'Tiếp tục' : 'Tạm dừng'}
               </button>
-              <button className="btn-pill btn-dark" onClick={tracker.stop}>
+              <button type="button" className="btn-pill btn-dark" onClick={tracker.stop}>
                 <span className="rec-square" aria-hidden="true" />
-                Kết thúc
+                {'Kết thúc'}
               </button>
             </>
           )}
           {hasUnsaved && (
             <>
-              <button className="btn-pill btn-outline" onClick={discard} disabled={busy}>Bỏ</button>
-              <button className="btn-pill btn-dark" onClick={save} disabled={busy}>
+              <button type="button" className="btn-pill btn-outline" onClick={discard} disabled={busy}>Bỏ</button>
+              <button type="button" className="btn-pill btn-dark" onClick={save} disabled={busy}>
                 {busy ? 'Đang lưu…' : 'Lưu lộ trình'}
               </button>
             </>
