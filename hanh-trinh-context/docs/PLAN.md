@@ -111,7 +111,7 @@ flowchart TD
 | 31 | Trình bày | Replay hành trình dạng story | 3 | Đã xong |
 | 32 | Trình bày | Xuất ảnh, poster bản đồ | 3 | Đã xong |
 | 33 | Tiện ích | Nhắc "ngày này năm trước" (pg_cron + Web Push) | 3 | Đã xong |
-| 34 | Tiện ích | PWA dùng khi mất mạng (xem dữ liệu đã tải; check-in mới và lộ trình ghi được, xem #38; sửa check-in vẫn cần mạng) | 3 | Đã xong |
+| 34 | Tiện ích | PWA dùng khi mất mạng (xem dữ liệu đã tải; check-in mới, sửa check-in và lộ trình ghi được, xem #38) | 3 | Đã xong |
 | 35 | Tiện ích | Nhập dữ liệu từ Google Takeout và Google Maps Timeline | 3 | Đã xong |
 | 36 | Lộ trình | App Capacitor ghi GPS khi chạy nền | 3 | Kế hoạch |
 | 37 | Bản đồ | Heatmap các khu vực đi qua nhiều | 3 | Đã xong |

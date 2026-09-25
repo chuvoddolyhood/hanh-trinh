@@ -6,7 +6,7 @@ import { fetchDailyWeather } from '../lib/weather';
 import { todayStr, toDateStr } from '../lib/dates';
 import { parseTags } from '../lib/text';
 import { locateByTime } from '../lib/geo';
-import { enqueue, isNetworkError } from '../lib/outbox';
+import { enqueue, enqueueEdit, isNetworkError, listOutbox, syncOutbox } from '../lib/outbox';
 import { usePhotoUrls } from '../hooks/usePhotoUrls';
 import { MOODS } from './moods';
 
@@ -194,29 +194,35 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
         weather,
       };
       const onProgress = (i, total) => setProgress(`Đang tải ảnh ${i}/${total}…`);
+      const removed = oldPhotos.filter((p) => removedIds.includes(p.id));
+      // Mất mạng → giữ trên máy, tự gửi khi có mạng (check-in mới hoặc bản sửa)
+      const queue = () => {
+        const queuedPhotos = photos.map(({ id, file, gps, takenAt }) => ({ id, file, gps, takenAt }));
+        return place
+          ? enqueueEdit(userId, { ...fields, photos: queuedPhotos, removed })
+          : enqueue(userId, 'place', { ...fields, photos: queuedPhotos });
+      };
+
+      if (place?.pending) {
+        // Còn bản sửa chưa gửi: gộp vào hàng chờ rồi gửi luôn, để bản cũ không đè lên bản mới
+        await queue();
+        await syncOutbox(userId).catch(() => {});
+        const queued = (await listOutbox(userId)).some((i) => i.id === placeId);
+        onSaved({ id: placeId }, { queued });
+        return;
+      }
       try {
         const saved = place
-          ? await api.updatePlace(
-            { ...fields, userId, photos, removed: oldPhotos.filter((p) => removedIds.includes(p.id)) },
-            onProgress,
-          )
+          ? await api.updatePlace({ ...fields, userId, photos, removed }, onProgress)
           : await api.createPlace({ ...fields, userId, photos }, onProgress);
         onSaved(saved);
       } catch (err) {
-        // Check-in mới khi mất mạng → giữ trên máy, tự gửi khi có mạng. Sửa check-in cũ vẫn cần mạng.
-        if (place || !isNetworkError(err)) throw err;
-        await enqueue(userId, 'place', {
-          ...fields,
-          photos: photos.map(({ id, file, gps, takenAt }) => ({ id, file, gps, takenAt })),
-        });
+        if (!isNetworkError(err)) throw err;
+        await queue();
         onSaved({ id: placeId }, { queued: true });
       }
     } catch (err) {
-      setError(
-        place && isNetworkError(err)
-          ? 'Đang mất mạng. Check-in mới được lưu tạm trên máy, còn sửa check-in cần có mạng.'
-          : `Chưa lưu được: ${err.message}`,
-      );
+      setError(`Chưa lưu được: ${err.message}`);
     } finally {
       setSaving(false);
       setProgress('');

@@ -76,7 +76,7 @@ export default function TripsScreen({ userId, places, tracks, onOpenPlace, onSho
         trip={open}
         userId={userId}
         own={tripItems(open, places, tracks)}
-        wishlist={places.filter((p) => p.kind === 'wishlist' && !p.pending)}
+        wishlist={places.filter((p) => p.kind === 'wishlist' && p.pending?.kind !== 'create')}
         onBack={() => setOpenId(null)}
         onEdit={() => setEditing(open)}
         // Có trip mới (đổi chia sẻ) → thay tại chỗ; không có → tải lại cả danh sách và dữ liệu của mình
@@ -524,7 +524,7 @@ function Expenses({ trip, userId, names }) {
   const [list, setList] = useState([]);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(null); // null | 'new' | khoản đang sửa
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState(userId);
@@ -534,7 +534,19 @@ function Expenses({ trip, userId, names }) {
     () => api.listExpenses(trip.id).then(setList).catch((e) => setError(e.message)),
     [trip.id],
   );
-  useEffect(() => { load(); }, [load]);
+  // Tải lần đầu, rồi tải lại mỗi khi có người trong chuyến thêm, sửa, xoá khoản chi
+  useEffect(() => {
+    load();
+    return api.subscribeExpenses(trip.id, load);
+  }, [trip.id, load]);
+
+  function openForm(e) {
+    setForm(e ?? 'new');
+    setTitle(e?.title ?? '');
+    setAmount(e ? String(e.amount) : '');
+    setPaidBy(e?.paid_by ?? userId);
+    setSplit(e?.split_among ?? null);
+  }
 
   const total = list.reduce((s, e) => s + e.amount, 0);
   const transfers = settle(balances(list));
@@ -558,23 +570,15 @@ function Expenses({ trip, userId, names }) {
     e.preventDefault();
     if (!value || !splitIds.length) return;
     act(async () => {
-      await api.addExpense({
-        trip_id: trip.id,
-        paid_by: paidBy,
-        title: title.trim(),
-        amount: value,
-        spent_on: todayStr(),
-        split_among: splitIds,
-      });
-      setTitle('');
-      setAmount('');
-      setSplit(null);
-      setAdding(false);
+      const fields = { paid_by: paidBy, title: title.trim(), amount: value, split_among: splitIds };
+      if (form === 'new') await api.addExpense({ ...fields, trip_id: trip.id, spent_on: todayStr() });
+      else await api.updateExpense(form.id, fields);
+      setForm(null);
     });
   }
 
   const toggle = (id) => setSplit(splitIds.includes(id) ? splitIds.filter((x) => x !== id) : [...splitIds, id]);
-  const canDelete = (e) => e.created_by === userId || trip.user_id === userId;
+  const canEdit = (e) => e.created_by === userId || trip.user_id === userId;
 
   return (
     <section className="stack-sm">
@@ -604,14 +608,14 @@ function Expenses({ trip, userId, names }) {
         <ul className="track-list expense-list">
           {list.map((e) => (
             <li key={e.id}>
-              <span className="track-main">
+              <button type="button" className="track-main" disabled={!canEdit(e)} onClick={() => openForm(e)}>
                 <span className="track-name">{e.title}</span>
                 <span className="muted-sm">
                   {formatVnd(e.amount)}, {formatDate(e.spent_on)}
                   {people.length > 1 && `, ${nameOf(e.paid_by)} trả, chia ${e.split_among.length} người`}
                 </span>
-              </span>
-              {canDelete(e) && (
+              </button>
+              {canEdit(e) && (
                 <button
                   type="button"
                   className="round-btn plain"
@@ -627,8 +631,9 @@ function Expenses({ trip, userId, names }) {
         </ul>
       )}
 
-      {adding ? (
+      {form ? (
         <form className="stack-sm" onSubmit={submit}>
+          {form !== 'new' && <p className="help">Sửa khoản "{form.title}"</p>}
           <label className="field">
             <span>Khoản chi</span>
             <input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Ăn tối, taxi" />
@@ -670,11 +675,11 @@ function Expenses({ trip, userId, names }) {
             <button type="submit" className="btn-pill btn-dark" disabled={busy || !value || !splitIds.length}>
               {busy ? 'Đang lưu…' : 'Lưu khoản chi'}
             </button>
-            <button type="button" className="btn-pill btn-outline" onClick={() => setAdding(false)}>Huỷ</button>
+            <button type="button" className="btn-pill btn-outline" onClick={() => setForm(null)}>Huỷ</button>
           </div>
         </form>
       ) : (
-        <button type="button" className="btn-pill btn-outline" onClick={() => setAdding(true)}>
+        <button type="button" className="btn-pill btn-outline" onClick={() => openForm(null)}>
           <Icon name="plus" size={18} strokeWidth={2.2} />
           {'Thêm khoản chi'}
         </button>

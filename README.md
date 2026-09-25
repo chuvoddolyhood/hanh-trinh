@@ -34,7 +34,7 @@ Nhật ký du lịch trên bản đồ: check-in, ảnh có GPS, ghi lộ trình
 
 1. Tạo project miễn phí tại supabase.com.
 2. Vào **SQL Editor**, dán toàn bộ `supabase/schema.sql` và chạy. File chạy lại được nhiều lần; mỗi khi schema đổi, chạy lại toàn bộ.
-   Database đã dựng từ trước: chạy lần lượt các file trong `supabase/migrations/` (theo tên file) thay vì chạy lại toàn bộ; `20260925_anh-nho.sql` cho phép bạn bè và link chia sẻ xem ảnh nhỏ; `20260926_chi-phi-chuyen-di.sql` thêm bảng chi phí chuyến đi.
+   Database đã dựng từ trước: chạy lần lượt các file trong `supabase/migrations/` (theo tên file) thay vì chạy lại toàn bộ; `20260925_anh-nho.sql` cho phép bạn bè và link chia sẻ xem ảnh nhỏ; `20260926_chi-phi-chuyen-di.sql` thêm bảng chi phí chuyến đi; `20260926_sua-chi-phi-realtime.sql` cho sửa khoản chi và cập nhật tức thì.
 3. Vào **Authentication → URL Configuration**:
    - Site URL: `http://localhost:5173` (đổi thành domain thật khi deploy)
    - Thêm domain deploy vào Redirect URLs.

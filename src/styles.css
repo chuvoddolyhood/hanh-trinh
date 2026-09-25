@@ -845,6 +845,7 @@ a.btn-dark { color: var(--surface); }
 .elevation-line { fill: none; stroke: var(--route); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .track-list li + li { margin-top: 4px; }
 .track-main { display: flex; flex: 1; flex-direction: column; min-height: 44px; padding: 8px 0 8px 14px; border: 0; background: none; text-align: left; }
+.track-main:disabled { opacity: 1; color: inherit; } /* Khoản chi của người khác: chỉ xem, chữ vẫn rõ */
 .track-name { font-weight: 600; }
 /* Ô tick: cả dòng là vùng chạm ≥ 44px */
 .check { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; cursor: pointer; }

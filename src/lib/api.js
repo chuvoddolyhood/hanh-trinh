@@ -217,8 +217,25 @@ export async function addExpense(fields) {
   unwrap(await supabase.from('trip_expenses').insert(fields));
 }
 
+export async function updateExpense(id, fields) {
+  unwrap(await supabase.from('trip_expenses').update(fields).eq('id', id));
+}
+
 export async function deleteExpense(id) {
   unwrap(await supabase.from('trip_expenses').delete().eq('id', id));
+}
+
+// Nghe thay đổi chi phí của chuyến (Realtime). DELETE không lọc được theo trip_id → nhận của mọi chuyến,
+// nơi gọi chỉ việc tải lại. Trả về hàm huỷ.
+export function subscribeExpenses(tripId, onChange) {
+  const filter = `trip_id=eq.${tripId}`;
+  const channel = supabase
+    .channel(`expenses-${tripId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trip_expenses', filter }, onChange)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trip_expenses', filter }, onChange)
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'trip_expenses' }, onChange)
+    .subscribe();
+  return () => supabase.removeChannel(channel);
 }
 
 // ----------------------------- Vùng riêng tư -----------------------------

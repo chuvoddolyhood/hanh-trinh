@@ -753,7 +753,7 @@ create trigger on_trip_member_removed
 
 -- =====================================================================
 -- Chi phí chuyến đi: ai trong chuyến (chủ, thành viên) cũng xem và thêm khoản chi;
--- người tạo hoặc chủ chuyến xoá được. Không sửa: xoá rồi thêm lại. Chia tiền tính ở client.
+-- người tạo hoặc chủ chuyến sửa, xoá được (policy update ở dưới). Chia tiền tính ở client.
 -- Tiền VND, số nguyên. split_among: những người chia khoản này (đều phải đang ở trong chuyến lúc thêm).
 -- =====================================================================
 create table if not exists public.trip_expenses (
@@ -794,6 +794,32 @@ create policy "trip_expenses_delete" on public.trip_expenses
     created_by = (select auth.uid())
     or exists (select 1 from public.trips t where t.id = trip_id and t.user_id = (select auth.uid()))
   );
+
+-- Sửa khoản chi: người tạo hoặc chủ chuyến; điều kiện giống lúc thêm (người trả, người chia đều đang ở trong chuyến)
+drop policy if exists "trip_expenses_update" on public.trip_expenses;
+create policy "trip_expenses_update" on public.trip_expenses
+  for update to authenticated
+  using (
+    created_by = (select auth.uid())
+    or exists (select 1 from public.trips t where t.id = trip_id and t.user_id = (select auth.uid()))
+  )
+  with check (
+    private.in_trip(trip_id, (select auth.uid()))
+    and private.in_trip(trip_id, paid_by)
+    and (select bool_and(private.in_trip(trip_id, u)) from unnest(split_among) as u)
+  );
+
+-- Cập nhật tức thì cho cả nhóm (Realtime tôn trọng RLS với INSERT, UPDATE; DELETE chỉ gửi khoá chính)
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'trip_expenses'
+  ) then
+    alter publication supabase_realtime add table public.trip_expenses;
+  end if;
+end;
+$$;
 
 -- =====================================================================
 -- Giai đoạn 3: lộ trình nhập từ Google Timeline

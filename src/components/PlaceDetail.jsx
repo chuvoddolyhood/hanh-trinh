@@ -130,14 +130,22 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
             <p className="notice" role="status">
               {pending.error
                 ? `Chưa đồng bộ được: ${pending.error}`
-                : `Chưa đồng bộ: lưu trên máy lúc mất mạng, sẽ tự gửi khi có mạng${pending.photos ? ` (kèm ${pending.photos} ảnh)` : ''}.`}
+                : `${pending.kind === 'edit' ? 'Thay đổi chưa đồng bộ' : 'Chưa đồng bộ'}: lưu trên máy lúc mất mạng, sẽ tự gửi khi có mạng${pending.photos ? ` (kèm ${pending.photos} ảnh mới)` : ''}.`}
             </p>
+            {pending.kind === 'edit' && (
+              <button type="button" className="btn-pill btn-outline" onClick={onEdit}>Sửa tiếp</button>
+            )}
             <button
               type="button"
               className="btn-link danger"
-              onClick={() => window.confirm(`Bỏ check-in "${place.name}" chưa đồng bộ? Không thể hoàn tác.`) && onDiscardPending()}
+              onClick={() =>
+                window.confirm(
+                  pending.kind === 'edit'
+                    ? `Bỏ thay đổi chưa đồng bộ của "${place.name}"? Địa điểm giữ nguyên như trước khi sửa.`
+                    : `Bỏ check-in "${place.name}" chưa đồng bộ? Không thể hoàn tác.`,
+                ) && onDiscardPending()}
             >
-              Bỏ check-in này
+              {pending.kind === 'edit' ? 'Bỏ thay đổi này' : 'Bỏ check-in này'}
             </button>
           </>
         )}

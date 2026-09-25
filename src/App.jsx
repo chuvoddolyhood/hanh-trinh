@@ -161,7 +161,7 @@ const openMemories = new URLSearchParams(window.location.search).has("memories")
 if (openMemories) window.history.replaceState(null, "", window.location.pathname);
 
 // Mục trong hàng chờ ngoại tuyến → dạng giống bản ghi từ server để hiện trên bản đồ, nhật ký.
-// pending: { photos: số ảnh chờ tải, error: lỗi khi gửi (nếu có) }
+// pending: { kind: 'create' | 'edit', photos: số ảnh chờ tải, error: lỗi khi gửi (nếu có) }
 function pendingPlace(item, userId) {
   const { photos, ...fields } = item.data;
   return {
@@ -169,7 +169,19 @@ function pendingPlace(item, userId) {
     user_id: userId,
     photos: [],
     created_at: new Date(item.createdAt).toISOString(),
-    pending: { photos: photos.length, error: item.error },
+    pending: { kind: "create", photos: photos.length, error: item.error },
+  };
+}
+
+// Bản sửa chưa gửi đè lên địa điểm đã lưu: trường mới, bỏ ảnh đã xoá (ảnh mới chưa có đường dẫn nên chưa hiện)
+function applyEdit(place, item) {
+  const { photos, removed, ...fields } = item.data;
+  const gone = new Set(removed.map((r) => r.id));
+  return {
+    ...place,
+    ...fields,
+    photos: place.photos.filter((ph) => !gone.has(ph.id)),
+    pending: { kind: "edit", photos: photos.length, error: item.error },
   };
 }
 
@@ -201,13 +213,13 @@ function Workspace({ user, theme, setTheme, dark }) {
   const [savedTracks, setTracks] = useState([]);
   const [outbox, setOutbox] = useState([]); // Check-in, lộ trình lưu lúc mất mạng, chờ gửi
   // Mục đang chờ hiện cùng dữ liệu đã lưu (trên cùng)
-  const places = useMemo(
-    () => [
+  const places = useMemo(() => {
+    const edits = new Map(outbox.filter((i) => i.type === "edit").map((i) => [i.id, i]));
+    return [
       ...outbox.filter((i) => i.type === "place").map((i) => pendingPlace(i, user.id)),
-      ...savedPlaces,
-    ],
-    [outbox, savedPlaces, user.id],
-  );
+      ...savedPlaces.map((p) => (edits.has(p.id) ? applyEdit(p, edits.get(p.id)) : p)),
+    ];
+  }, [outbox, savedPlaces, user.id]);
   const tracks = useMemo(
     () => [
       ...outbox.filter((i) => i.type === "track").map((i) => pendingTrack(i, user.id)),
@@ -600,7 +612,7 @@ function Workspace({ user, theme, setTheme, dark }) {
                 closeCheckin();
                 setDetailId(place.id);
                 if (queued)
-                  setNotice("Đang mất mạng: đã lưu check-in trên máy, sẽ tự đồng bộ khi có mạng.");
+                  setNotice("Đang mất mạng: đã lưu trên máy, sẽ tự đồng bộ khi có mạng.");
               }}
             />
           </section>
