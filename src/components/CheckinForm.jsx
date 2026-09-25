@@ -9,6 +9,10 @@ import { locateByTime } from '../lib/geo';
 import { enqueue, enqueueEdit, isNetworkError, listOutbox, syncOutbox } from '../lib/outbox';
 import { usePhotoUrls } from '../hooks/usePhotoUrls';
 import { MOODS } from './moods';
+import Icon from './icons';
+
+// Nhận dạng giọng nói của trình duyệt (Chrome, Edge, Safari 14.1+); không có thì ẩn nút micro
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 const VISIBILITY = [
   { id: 'private', label: 'Chỉ mình tôi' },
@@ -43,6 +47,34 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
   const [progress, setProgress] = useState('');
   const [hint, setHint] = useState('');
   const [error, setError] = useState(null);
+
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+  useEffect(() => () => recognitionRef.current?.abort(), []);
+
+  // Nói để thêm vào ghi chú; bấm lần nữa để dừng
+  function toggleVoice() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const rec = new SpeechRecognition();
+    rec.lang = 'vi-VN';
+    rec.continuous = true;
+    rec.onresult = (e) => {
+      const text = Array.from(e.results).slice(e.resultIndex)
+        .filter((r) => r.isFinal).map((r) => r[0].transcript.trim()).join(' ');
+      if (text) setNote((n) => (n.trim() ? `${n.trimEnd()} ${text}` : text));
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed') setError('Chưa cho phép dùng micro. Bật quyền micro cho trang này rồi thử lại.');
+      else if (e.error !== 'aborted' && e.error !== 'no-speech') setError('Không nhận dạng được giọng nói, thử lại.');
+    };
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+  }
 
   // Người dùng đã tự gõ tên (hoặc đang sửa check-in cũ) thì không ghi đè bằng tên gợi ý
   const nameTouchedRef = useRef(Boolean(place));
@@ -310,10 +342,28 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
         </>
       )}
 
-      <label className="field">
-        <span>Ghi chú</span>
-        <textarea rows={4} value={note} onChange={(e) => setNote(e.target.value)} />
-      </label>
+      <div className="field">
+        <span className="field-head">
+          <label htmlFor="checkin-note">Ghi chú</label>
+          {SpeechRecognition && (
+            <button
+              type="button"
+              className={`round-btn plain${listening ? ' is-live' : ''}`}
+              onClick={toggleVoice}
+              aria-pressed={listening}
+              aria-label={listening ? 'Dừng ghi bằng giọng nói' : 'Ghi chú bằng giọng nói'}
+            >
+              <Icon name="mic" size={20} />
+            </button>
+          )}
+        </span>
+        <textarea id="checkin-note" rows={4} value={note} onChange={(e) => setNote(e.target.value)} />
+        {listening && (
+          <p className="help" role="status">
+            Đang nghe, nói tiếng Việt… Trình duyệt gửi giọng nói tới máy chủ nhận dạng (Chrome: Google).
+          </p>
+        )}
+      </div>
 
       <label className="field">
         <span>Tag (cách nhau bằng dấu phẩy)</span>

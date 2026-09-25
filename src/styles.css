@@ -770,6 +770,10 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Ghi chú bằng giọng nói */
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.round-btn.is-live { color: var(--route); }
+
 /* Dự báo thời tiết chuyến đi */
 .forecast { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .forecast li { display: grid; grid-template-columns: 52px 1fr auto 64px; gap: 10px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
