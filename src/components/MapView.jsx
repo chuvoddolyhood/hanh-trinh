@@ -204,40 +204,6 @@ const MapView = forwardRef(function MapView(
     geolocateRef.current = geolocate;
 
     map.on("load", () => {
-      // Kế hoạch chuyến đi: đường nét đứt nối các điểm dừng, số thứ tự trên cùng
-      map.addLayer({
-        id: "plan-line",
-        type: "line",
-        source: "plan",
-        filter: ["==", ["geometry-type"], "LineString"],
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": C.wishlist, "line-width": 3, "line-dasharray": [1.5, 1.5] },
-      });
-      map.addLayer({
-        id: "plan-stops",
-        type: "circle",
-        source: "plan",
-        filter: ["==", ["geometry-type"], "Point"],
-        paint: {
-          "circle-radius": 11,
-          "circle-color": C.wishlist,
-          "circle-stroke-width": 2,
-          "circle-stroke-color": C.surface,
-        },
-      });
-      map.addLayer({
-        id: "plan-numbers",
-        type: "symbol",
-        source: "plan",
-        filter: ["==", ["geometry-type"], "Point"],
-        layout: {
-          "text-field": ["to-string", ["get", "n"]],
-          "text-font": ["Noto Sans Bold"],
-          "text-size": 12,
-          "text-allow-overlap": true,
-        },
-        paint: { "text-color": C.surface },
-      });
       if (!dark) tintLiberty(map);
 
       // Nguồn dữ liệu
@@ -414,6 +380,41 @@ const MapView = forwardRef(function MapView(
           "text-halo-color": C.surface,
           "text-halo-width": 1.5,
         },
+      });
+
+      // Kế hoạch chuyến đi: đường nét đứt nối các điểm dừng, số thứ tự trên cùng
+      map.addLayer({
+        id: "plan-line",
+        type: "line",
+        source: "plan",
+        filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": C.wishlist, "line-width": 3, "line-dasharray": [1.5, 1.5] },
+      });
+      map.addLayer({
+        id: "plan-stops",
+        type: "circle",
+        source: "plan",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 11,
+          "circle-color": C.wishlist,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": C.surface,
+        },
+      });
+      map.addLayer({
+        id: "plan-numbers",
+        type: "symbol",
+        source: "plan",
+        filter: ["==", ["geometry-type"], "Point"],
+        layout: {
+          "text-field": ["to-string", ["get", "n"]],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 12,
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": C.surface },
       });
 
       // Bấm cụm → phóng to vào cụm
