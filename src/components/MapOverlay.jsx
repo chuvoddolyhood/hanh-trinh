@@ -8,6 +8,7 @@ import { placeSummary } from "./moods";
 
 // Các thành phần nổi trên màn hình Bản đồ: tìm kiếm, chip thời tiết/thống kê, nút Check-in, thẻ xem nhanh.
 // friendName: đang xem bản đồ của bạn → thay tìm kiếm bằng thanh "Bản đồ của …", ẩn nút Check-in
+// planName: đang xem kế hoạch chuyến đi → thay tìm kiếm bằng thanh "Kế hoạch: …"
 export default function MapOverlay({
   query,
   onQueryChange,
@@ -20,6 +21,8 @@ export default function MapOverlay({
   onHeatToggle,
   friendName,
   onCloseFriend,
+  planName,
+  onClosePlan,
   selected,
   onOpen,
   onCheckin,
@@ -27,18 +30,24 @@ export default function MapOverlay({
   const cover = selected?.photos[0]?.storage_path;
   const urls = usePhotoUrls(cover ? [cover] : [], { thumb: true });
 
+  let bar = null;
+  if (friendName)
+    bar = { icon: "users", text: `Bản đồ của ${friendName}`, onClose: onCloseFriend, close: "Quay về bản đồ của tôi" };
+  else if (planName)
+    bar = { icon: "flag", text: `Kế hoạch: ${planName}`, onClose: onClosePlan, close: "Ẩn kế hoạch" };
+
   return (
     <>
-      {friendName && (
+      {bar && (
         <div className="map-top">
           <div className="map-search friend-bar">
-            <Icon name="users" size={20} />
-            <span className="friend-bar-name">Bản đồ của {friendName}</span>
+            <Icon name={bar.icon} size={20} />
+            <span className="friend-bar-name">{bar.text}</span>
             <button
               type="button"
               className="round-btn plain"
-              onClick={onCloseFriend}
-              aria-label="Quay về bản đồ của tôi"
+              onClick={bar.onClose}
+              aria-label={bar.close}
             >
               <Icon name="close" size={20} />
             </button>
@@ -46,7 +55,7 @@ export default function MapOverlay({
         </div>
       )}
 
-      {!friendName && (
+      {!bar && (
       <div className="map-top">
         <form
           className="map-search"

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../lib/api';
 import Icon from './icons';
-import { bounds, formatDistance } from '../lib/geo';
+import { bounds, formatDistance, haversine } from '../lib/geo';
 import { formatDate, todayStr } from '../lib/dates';
+import { fetchDailyWeather } from '../lib/weather';
+import { planOrder } from '../lib/plan';
+import { balances, settle, formatVnd } from '../lib/expenses';
 
 const VISIBILITY = [
   { id: 'private', label: 'Riêng tư' },
@@ -33,7 +36,8 @@ const dayCount = (t) => Math.round((new Date(t.end_date) - new Date(t.start_date
 // Tab Chuyến đi: danh sách, tạo/sửa chuyến, xem chi tiết và bật link chia sẻ
 // onOpenPlace(place, ownerName): ownerName có giá trị khi là nơi của thành viên khác
 // onDataChanged(): tải lại nơi, lộ trình của mình ở App (sau khi gắn/gỡ khỏi chuyến nhóm)
-export default function TripsScreen({ userId, places, tracks, onOpenPlace, onShowOnMap, onDataChanged, onPlayStory, onMakePoster }) {
+// onShowPlan(name, [[lng, lat], ...]): vẽ kế hoạch (điểm dừng theo thứ tự) trên bản đồ
+export default function TripsScreen({ userId, places, tracks, onOpenPlace, onShowOnMap, onShowPlan, onDataChanged, onPlayStory, onMakePoster }) {
   const [trips, setTrips] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(null);
@@ -72,6 +76,7 @@ export default function TripsScreen({ userId, places, tracks, onOpenPlace, onSho
         trip={open}
         userId={userId}
         own={tripItems(open, places, tracks)}
+        wishlist={places.filter((p) => p.kind === 'wishlist' && !p.pending)}
         onBack={() => setOpenId(null)}
         onEdit={() => setEditing(open)}
         // Có trip mới (đổi chia sẻ) → thay tại chỗ; không có → tải lại cả danh sách và dữ liệu của mình
@@ -82,6 +87,7 @@ export default function TripsScreen({ userId, places, tracks, onOpenPlace, onSho
         onLeft={async () => { setOpenId(null); await load(); }}
         onOpenPlace={onOpenPlace}
         onShowOnMap={onShowOnMap}
+        onShowPlan={onShowPlan}
         onPlayStory={onPlayStory}
         onMakePoster={onMakePoster}
       />
@@ -139,7 +145,7 @@ const isGroup = (trip, userId) => trip.user_id !== userId || trip.members.length
 // Gộp danh sách, bỏ trùng theo id (nơi của chủ vừa trong khoảng ngày vừa được chọn cho nhóm)
 const unique = (list) => [...new Map(list.map((x) => [x.id, x])).values()];
 
-function TripDetail({ trip, userId, own, onBack, onEdit, onChanged, onLeft, onOpenPlace, onShowOnMap, onPlayStory, onMakePoster }) {
+function TripDetail({ trip, userId, own, wishlist, onBack, onEdit, onChanged, onLeft, onOpenPlace, onShowOnMap, onShowPlan, onPlayStory, onMakePoster }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [group, setGroup] = useState({ places: [], tracks: [] }); // Mục mọi người đã chọn cho nhóm
@@ -157,6 +163,13 @@ function TripDetail({ trip, userId, own, onBack, onEdit, onChanged, onLeft, onOp
   useEffect(() => {
     if (grouped) loadGroup();
   }, [grouped, loadGroup]);
+
+  // Kế hoạch: nơi muốn đến gắn vào chuyến (của mình + của thành viên), sắp theo đường đi ngắn
+  const planned = unique([
+    ...wishlist.filter((p) => p.trip_id === trip.id),
+    ...group.places.filter((p) => p.kind === 'wishlist'),
+  ]);
+  const stops = planOrder(planned.map((p) => [p.lng, p.lat])).map((i) => planned[i]);
 
   // Chủ thấy mọi nơi của mình trong khoảng ngày + mục nhóm; thành viên chỉ thấy mục nhóm
   const items = {
@@ -323,6 +336,20 @@ function TripDetail({ trip, userId, own, onBack, onEdit, onChanged, onLeft, onOp
 
         <Members trip={trip} userId={userId} busy={busy} run={run} onChanged={onChanged} />
 
+        <Plan
+          trip={trip}
+          stops={stops}
+          choices={wishlist.filter((p) => !p.trip_id)}
+          author={author}
+          busy={busy}
+          run={run}
+          reload={() => Promise.all([grouped && loadGroup(), onChanged()])}
+          onOpenPlace={onOpenPlace}
+          onShowPlan={onShowPlan}
+        />
+
+        <Expenses trip={trip} userId={userId} names={names} />
+
         <section className="stack-sm">
           <h2 className="section-title">Địa điểm</h2>
           {items.places.length === 0 && <p className="empty">Chưa có nơi đã đến nào trong chuyến.</p>}
@@ -396,6 +423,264 @@ function TripDetail({ trip, userId, own, onBack, onEdit, onChanged, onLeft, onOp
         )}
       </div>
     </div>
+  );
+}
+
+// Kế hoạch: nơi muốn đến gắn vào chuyến (trip_id), đánh số theo thứ tự đi; đến nơi thì "Đã đến" một chạm.
+// Mỗi người chỉ thêm, gỡ, check-in nơi của mình (RLS); thứ tự tự tính nên không cần lưu.
+function Plan({ trip, stops, choices, author, busy, run, reload, onOpenPlace, onShowPlan }) {
+  const [pick, setPick] = useState('');
+  const total = stops.reduce((s, p, i) => (i ? s + haversine([stops[i - 1].lng, stops[i - 1].lat], [p.lng, p.lat]) : 0), 0);
+
+  function markVisited(p) {
+    run(async () => {
+      const today = todayStr();
+      const weather = await fetchDailyWeather(p.lat, p.lng, today).catch(() => null);
+      await api.markVisited(p.id, today, weather);
+      await reload();
+    }, `Đã check-in ${p.name}.`);
+  }
+
+  return (
+    <section className="stack-sm">
+      <h2 className="section-title">Kế hoạch</h2>
+      {stops.length === 0 ? (
+        <p className="help">Thêm nơi muốn đến vào chuyến; thứ tự đi được sắp theo đường ngắn nhất.</p>
+      ) : (
+        <>
+          <p className="help">
+            {stops.length} điểm dừng
+            {stops.length > 1 && `, khoảng ${formatDistance(total)} đường chim bay`}. Thứ tự sắp theo đường ngắn nhất.
+          </p>
+          <ol className="plan-list">
+            {stops.map((p, i) => (
+              <li key={p.id}>
+                <span className="plan-n" aria-hidden="true">{i + 1}</span>
+                <button type="button" className="track-main" onClick={() => onOpenPlace(p, author(p))}>
+                  <span className="track-name">{p.name}</span>
+                  <span className="muted-sm">
+                    {[
+                      author(p) && `của ${author(p)}`,
+                      i < stops.length - 1 &&
+                        `tới điểm sau ${formatDistance(haversine([p.lng, p.lat], [stops[i + 1].lng, stops[i + 1].lat]))}`,
+                    ].filter(Boolean).join(', ')}
+                  </span>
+                </button>
+                {!author(p) && (
+                  <>
+                    <button type="button" className="chip" disabled={busy} onClick={() => markVisited(p)}>
+                      Đã đến
+                    </button>
+                    <button
+                      type="button"
+                      className="round-btn plain"
+                      disabled={busy}
+                      onClick={() => run(async () => { await api.setItemTrip('places', p.id, null); await reload(); })}
+                      aria-label={`Bỏ ${p.name} khỏi kế hoạch`}
+                    >
+                      <Icon name="close" size={18} />
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            className="btn-pill btn-outline"
+            onClick={() => onShowPlan(trip.name, stops.map((p) => [p.lng, p.lat]))}
+          >
+            <Icon name="map" size={18} />
+            {'Xem kế hoạch trên bản đồ'}
+          </button>
+        </>
+      )}
+      {choices.length > 0 ? (
+        <div className="search-row">
+          <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Chọn nơi muốn đến để thêm vào kế hoạch">
+            <option value="">Chọn nơi muốn đến…</option>
+            {choices.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <button
+            type="button"
+            className="btn"
+            disabled={busy || !pick}
+            onClick={() => run(async () => { await api.setItemTrip('places', pick, trip.id); setPick(''); await reload(); })}
+          >
+            Thêm
+          </button>
+        </div>
+      ) : (
+        <p className="help">Lưu nơi muốn đến bằng Check-in → "Muốn đến" để thêm vào kế hoạch.</p>
+      )}
+    </section>
+  );
+}
+
+// Chi phí: ai trả, chia cho ai; cuối cùng tính ai trả ai. Người trong chuyến = chủ + thành viên.
+function Expenses({ trip, userId, names }) {
+  const people = [trip.owner, ...trip.members.map((m) => m.profile)].filter(Boolean);
+  const nameOf = (id) => (id === userId ? 'Bạn' : (names[id] ?? 'Người đã rời chuyến'));
+  const [list, setList] = useState([]);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState('');
+  const [amount, setAmount] = useState('');
+  const [paidBy, setPaidBy] = useState(userId);
+  const [split, setSplit] = useState(null); // null = mọi người
+
+  const load = useCallback(
+    () => api.listExpenses(trip.id).then(setList).catch((e) => setError(e.message)),
+    [trip.id],
+  );
+  useEffect(() => { load(); }, [load]);
+
+  const total = list.reduce((s, e) => s + e.amount, 0);
+  const transfers = settle(balances(list));
+  const splitIds = split ?? people.map((p) => p.id);
+  const value = Number(amount.replace(/\D/g, ''));
+
+  async function act(action) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!value || !splitIds.length) return;
+    act(async () => {
+      await api.addExpense({
+        trip_id: trip.id,
+        paid_by: paidBy,
+        title: title.trim(),
+        amount: value,
+        spent_on: todayStr(),
+        split_among: splitIds,
+      });
+      setTitle('');
+      setAmount('');
+      setSplit(null);
+      setAdding(false);
+    });
+  }
+
+  const toggle = (id) => setSplit(splitIds.includes(id) ? splitIds.filter((x) => x !== id) : [...splitIds, id]);
+  const canDelete = (e) => e.created_by === userId || trip.user_id === userId;
+
+  return (
+    <section className="stack-sm">
+      <h2 className="section-title">Chi phí</h2>
+      {list.length > 0 && (
+        <p className="help">
+          Tổng {formatVnd(total)}
+          {people.length > 1 && `, trung bình ${formatVnd(Math.round(total / people.length))} mỗi người`}.
+        </p>
+      )}
+
+      {people.length > 1 && transfers.length > 0 && (
+        <ul className="track-list">
+          {transfers.map((t) => (
+            <li key={`${t.from}-${t.to}`}>
+              <span className="track-main">
+                <span className="track-name">{nameOf(t.from)} trả {nameOf(t.to)}</span>
+                <span className="muted-sm">{formatVnd(t.amount)}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {people.length > 1 && list.length > 0 && transfers.length === 0 && <p className="help">Mọi người đã chia đều, không ai nợ ai.</p>}
+
+      {list.length > 0 && (
+        <ul className="track-list expense-list">
+          {list.map((e) => (
+            <li key={e.id}>
+              <span className="track-main">
+                <span className="track-name">{e.title}</span>
+                <span className="muted-sm">
+                  {formatVnd(e.amount)}, {formatDate(e.spent_on)}
+                  {people.length > 1 && `, ${nameOf(e.paid_by)} trả, chia ${e.split_among.length} người`}
+                </span>
+              </span>
+              {canDelete(e) && (
+                <button
+                  type="button"
+                  className="round-btn plain"
+                  disabled={busy}
+                  onClick={() => window.confirm(`Xoá khoản "${e.title}"?`) && act(() => api.deleteExpense(e.id))}
+                  aria-label={`Xoá khoản ${e.title}`}
+                >
+                  <Icon name="close" size={18} />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {adding ? (
+        <form className="stack-sm" onSubmit={submit}>
+          <label className="field">
+            <span>Khoản chi</span>
+            <input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Ăn tối, taxi" />
+          </label>
+          <label className="field">
+            <span>Số tiền (đồng)</span>
+            <input
+              required
+              inputMode="numeric"
+              value={value ? value.toLocaleString('vi-VN') : ''}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="VD: 250.000"
+            />
+          </label>
+          {people.length > 1 && (
+            <>
+              <label className="field">
+                <span>Người trả</span>
+                <select value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>
+                  {people.map((p) => <option key={p.id} value={p.id}>{nameOf(p.id)}</option>)}
+                </select>
+              </label>
+              <fieldset>
+                <legend>Chia cho</legend>
+                <div className="chips">
+                  {people.map((p) => (
+                    <button type="button" key={p.id} className="chip" aria-pressed={splitIds.includes(p.id)} onClick={() => toggle(p.id)}>
+                      {nameOf(p.id)}
+                    </button>
+                  ))}
+                </div>
+                {value > 0 && splitIds.length > 0 && (
+                  <p className="help">Mỗi người khoảng {formatVnd(Math.round(value / splitIds.length))}.</p>
+                )}
+              </fieldset>
+            </>
+          )}
+          <div className="row">
+            <button type="submit" className="btn-pill btn-dark" disabled={busy || !value || !splitIds.length}>
+              {busy ? 'Đang lưu…' : 'Lưu khoản chi'}
+            </button>
+            <button type="button" className="btn-pill btn-outline" onClick={() => setAdding(false)}>Huỷ</button>
+          </div>
+        </form>
+      ) : (
+        <button type="button" className="btn-pill btn-outline" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={18} strokeWidth={2.2} />
+          {'Thêm khoản chi'}
+        </button>
+      )}
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 

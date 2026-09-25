@@ -239,6 +239,7 @@ function Workspace({ user, theme, setTheme, dark }) {
   const [friend, setFriend] = useState(null); // Đang xem bản đồ của bạn: { profile, places }
   const [story, setStory] = useState(null); // Xem lại dạng story: { title, places, returnTab }
   const [recap, setRecap] = useState(null); // Tổng kết năm: { year, returnTab }
+  const [plan, setPlan] = useState(null); // Kế hoạch chuyến đi trên bản đồ: { name, coords: [[lng, lat], ...] }
   const [poster, setPoster] = useState(null); // { status: 'working' | 'ready', url, blob, title }
   const mapApi = useRef(null);
   const [external, setExternal] = useState(null); // Nơi của thành viên chuyến nhóm: { place, ownerName }
@@ -526,6 +527,7 @@ function Workspace({ user, theme, setTheme, dark }) {
         focus={focus}
         scratch={onMap && !checkin && !friend ? scratch : null}
         heat={onMap && !checkin && !friend ? heat : null}
+        plan={onMap && !friend ? plan?.coords : null}
         showLocate={onMap && !checkin}
         onLocate={handleLocate}
         onMapClick={handleMapClick}
@@ -549,6 +551,8 @@ function Workspace({ user, theme, setTheme, dark }) {
           onHeatToggle={() => setHeatOn(!heatOn)}
           friendName={friend?.profile.display_name}
           onCloseFriend={closeFriend}
+          planName={plan?.name}
+          onClosePlan={() => setPlan(null)}
           selected={selected}
           onOpen={setDetailId}
           onCheckin={() => {
@@ -633,6 +637,15 @@ function Workspace({ user, theme, setTheme, dark }) {
             setTab("map");
             setFocus({ bounds: b });
           }}
+          onShowPlan={(name, coords) => {
+            setPlan({ name, coords });
+            setTab("map");
+            setFocus(
+              coords.length > 1
+                ? { bounds: bounds(coords) }
+                : { lng: coords[0][0], lat: coords[0][1], zoom: 14 },
+            );
+          }}
         />
       )}
 
@@ -681,6 +694,7 @@ function Workspace({ user, theme, setTheme, dark }) {
             setSelectedId(null);
             reload();
           }}
+          onChanged={reload}
           onDiscardPending={async () => {
             setDetailId(null);
             setSelectedId(null);

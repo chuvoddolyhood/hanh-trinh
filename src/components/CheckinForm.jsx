@@ -175,8 +175,9 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
       }
 
       // Chỉ gắn khi ngày đến nằm trong chuyến (đổi ngày ra ngoài thì gỡ); chưa tải xong danh sách chuyến → giữ nguyên
+      // Nơi muốn đến: giữ nguyên (trip_id là kế hoạch của chuyến, gắn ở tab Chuyến đi)
       let nextTripId = place?.trip_id ?? null;
-      if (groupTrips !== null) nextTripId = tripChoices.some((t) => t.id === tripId) ? tripId : null;
+      if (groupTrips !== null && kind === 'visited') nextTripId = tripChoices.some((t) => t.id === tripId) ? tripId : null;
 
       const fields = {
         id: placeId,

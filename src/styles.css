@@ -768,6 +768,24 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Kế hoạch chuyến đi */
+.plan-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.plan-list li { display: flex; align-items: center; gap: 6px; }
+.plan-list .track-main { padding-left: 4px; }
+.plan-n {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--wishlist);
+  color: #FFFFFF;
+  font: 600 13px var(--sans);
+}
+[data-theme='dark'] .plan-n { color: #1E1F23; } /* Chữ trắng trên tím nhạt của dark mode chỉ ~2.9:1 */
+
 /* Huy hiệu (tab Tôi) */
 .badges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
 .badge { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
