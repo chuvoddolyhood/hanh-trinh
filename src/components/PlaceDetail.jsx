@@ -17,7 +17,9 @@ const TILTS = [-4, 2, 5];
 export default function PlaceDetail({ place, tracks, userId, owner = null, onBack, onDeleted, onDiscardPending, onShowOnMap, onEdit, onTagClick }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
-  const urls = usePhotoUrls(place.photos.map((p) => p.storage_path));
+  const paths = place.photos.map((p) => p.storage_path);
+  const thumbs = usePhotoUrls(paths, { thumb: true }); // Hiện trong khung polaroid
+  const urls = usePhotoUrls(paths); // Ảnh gốc khi bấm mở
 
   async function handleDelete() {
     if (!window.confirm(`Xoá "${place.name}" cùng toàn bộ ảnh? Không thể hoàn tác.`)) return;
@@ -87,7 +89,7 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
           <div className="detail-photos">
             {place.photos.map((p, i) => (
               <a key={p.id} href={urls[p.storage_path]} target="_blank" rel="noreferrer" aria-label={`Mở ảnh ${i + 1}`}>
-                <Polaroid src={urls[p.storage_path]} alt={`Ảnh tại ${place.name}`} tilt={TILTS[i % 3]} />
+                <Polaroid src={thumbs[p.storage_path]} alt={`Ảnh tại ${place.name}`} tilt={TILTS[i % 3]} />
               </a>
             ))}
           </div>

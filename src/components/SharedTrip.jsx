@@ -36,6 +36,7 @@ export default function SharedTrip({ token, dark }) {
   // Ảnh bìa của mọi nơi, cộng toàn bộ ảnh của nơi đang mở
   const urls = usePhotoUrls(
     places.flatMap((p) => (p.id === selectedId ? p.photos : p.photos.slice(0, 1)).map((ph) => ph.storage_path)),
+    { thumb: true },
   );
 
   const padding = { bottom: window.innerHeight * 0.5 };

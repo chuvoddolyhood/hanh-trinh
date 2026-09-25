@@ -20,7 +20,7 @@ export default function YearRecap({ year, places, tracks, provinceSet, onFocus, 
   const [regions, setRegions] = useState(null); // { count, fresh: tên tỉnh lần đầu đến, countries }
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const urls = usePhotoUrls(r.picks.map((k) => k.photo.storage_path));
+  const urls = usePhotoUrls(r.picks.map((k) => k.photo.storage_path), { thumb: true });
 
   // Tỉnh trong năm và tỉnh mới (chưa từng đến trước năm này); lỗi tải ranh giới thì bỏ phần tỉnh
   useEffect(() => {

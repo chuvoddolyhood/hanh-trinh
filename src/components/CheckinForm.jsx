@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../lib/api';
-import { readPhotoMeta } from '../lib/photo';
+import { readPhotoMeta, isHeic, toJpegIfHeic } from '../lib/photo';
 import { searchPlaces, reverseGeocode } from '../lib/geocode';
 import { fetchDailyWeather } from '../lib/weather';
 import { todayStr, toDateStr } from '../lib/dates';
@@ -33,7 +33,7 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
   const [removedIds, setRemovedIds] = useState([]); // Ảnh cũ bị bỏ khi sửa
   const [placeId] = useState(() => place?.id ?? crypto.randomUUID()); // Tạo sẵn để gửi lại không bị trùng
   const oldPhotos = place?.photos ?? [];
-  const oldUrls = usePhotoUrls(oldPhotos.map((p) => p.storage_path));
+  const oldUrls = usePhotoUrls(oldPhotos.map((p) => p.storage_path), { thumb: true });
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -101,10 +101,13 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
     const files = Array.from(e.target.files ?? []);
     e.target.value = ''; // Cho phép chọn lại cùng file
     if (!files.length) return;
+    if (files.some(isHeic)) setHint('Đang chuyển ảnh HEIC sang JPEG…');
 
     const metas = await Promise.all(
-      files.map(async (file) => {
-        const meta = await readPhotoMeta(file);
+      files.map(async (original) => {
+        const meta = await readPhotoMeta(original); // Đọc EXIF trước khi chuyển (bản JPEG không còn EXIF)
+        // Chuyển lỗi (file hỏng, máy thiếu bộ nhớ): giữ file gốc, Safari vẫn nén được
+        const file = await toJpegIfHeic(original).catch(() => original);
         // Ảnh không có GPS nhưng có giờ chụp → lấy vị trí trên lộ trình đã ghi lúc đó
         const fromTrack = !meta.gps && meta.takenAt ? locateByTime(tracks, meta.takenAt.getTime()) : null;
         return {
@@ -348,7 +351,6 @@ export default function CheckinForm({ userId, place = null, tracks = [], default
             ))}
             {photos.map((p) => (
               <li key={p.id}>
-                {/* HEIC có thể không xem trước được trên Chrome nhưng vẫn upload được sau khi nén */}
                 <img src={p.preview} alt="" />
                 {p.gps && (
                   <span className="thumb-gps" title={p.fromTrack ? 'Vị trí lấy từ lộ trình' : 'Ảnh có GPS'}>

@@ -7,6 +7,8 @@ import { formatDate, toDateStr, todayStr } from "../lib/dates";
 import { placesToGeoJson, tracksToGpx, downloadText } from "../lib/backup";
 import { clearOutbox } from "../lib/outbox";
 import { recapYears } from "../lib/recap";
+import { badges } from "../lib/badges";
+import { trackElevation } from "../lib/elevation";
 import Icon from "./icons";
 import FriendsSection from "./FriendsSection";
 import TimelineImport from "./TimelineImport";
@@ -46,6 +48,7 @@ export default function MeScreen({
   onOpenRecap,
   places,
   tracks,
+  regions,
   pendingCount,
   onDiscardPending,
   onChanged,
@@ -55,6 +58,7 @@ export default function MeScreen({
   const [message, setMessage] = useState(null);
   const [password, setPassword] = useState("");
   const [pwMessage, setPwMessage] = useState(null);
+  const [elevationId, setElevationId] = useState(null); // Lộ trình đang mở biểu đồ độ cao
 
   // Đặt/đổi mật khẩu (tài khoản tạo bằng link email chưa có mật khẩu)
   async function savePassword(e) {
@@ -125,6 +129,8 @@ export default function MeScreen({
   }
 
   const years = recapYears(places, tracks);
+  const badgeList = badges(places, tracks, regions);
+  const earned = badgeList.filter((b) => b.done).length;
 
   return (
     <div className="screen">
@@ -233,6 +239,39 @@ export default function MeScreen({
           </button>
         </section>
 
+        <section className="stack-sm">
+          <h2 className="section-title">Huy hiệu</h2>
+          <p className="help">Đã đạt {earned}/{badgeList.length}.</p>
+          <ul className="badges">
+            {badgeList.map((b) => (
+              <li key={b.id} className={b.done ? "badge is-done" : "badge"}>
+                <span className="badge-name">{b.label}</span>
+                <span className="muted-sm">{b.desc}</span>
+                {b.done ? (
+                  <span className="mono-label badge-state">ĐÃ ĐẠT</span>
+                ) : (
+                  <span
+                    className="badge-bar"
+                    role="progressbar"
+                    aria-label={`${b.label}: ${b.value}/${b.goal}`}
+                    aria-valuenow={b.value}
+                    aria-valuemin={0}
+                    aria-valuemax={b.goal}
+                  >
+                    <span style={{ width: `${(b.value / b.goal) * 100}%` }} />
+                  </span>
+                )}
+                {!b.done && (
+                  <span className="mono-label">
+                    {b.value}/{b.goal}
+                    {b.unit && ` ${b.unit.toUpperCase()}`}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+
         {years.length > 0 && (
           <section className="stack-sm">
             <h2 className="section-title">Tổng kết năm</h2>
@@ -282,11 +321,21 @@ export default function MeScreen({
                 <button
                   type="button"
                   className="round-btn plain"
+                  onClick={() => setElevationId(elevationId === t.id ? null : t.id)}
+                  aria-expanded={elevationId === t.id}
+                  aria-label={`Độ cao của ${t.name}`}
+                >
+                  <Icon name="down" size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="round-btn plain"
                   onClick={() => removeTrack(t)}
                   aria-label={`Xoá ${t.name}`}
                 >
                   <Icon name="close" size={18} />
                 </button>
+                {elevationId === t.id && <TrackElevation track={t} />}
               </li>
             ))}
           </ul>
@@ -361,6 +410,50 @@ export default function MeScreen({
           Đăng xuất
         </button>
       </div>
+    </div>
+  );
+}
+
+// Biểu đồ độ cao của một lộ trình (lấy khi mở, nhớ theo id lộ trình)
+function TrackElevation({ track }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    trackElevation(track)
+      .then((d) => alive && setData(d))
+      .catch(() => alive && setError("Không lấy được độ cao. Kiểm tra mạng rồi mở lại."));
+    return () => {
+      alive = false;
+    };
+  }, [track]);
+
+  if (error) return <p className="elevation help">{error}</p>;
+  if (!data) return <p className="elevation help">Đang lấy độ cao…</p>;
+
+  // Vẽ trong khung 300×80, trục dọc từ thấp nhất đến cao nhất (tối thiểu 10 m để đường phẳng không bị phóng đại)
+  const { profile, gain, loss, min, max } = data;
+  const total = profile.at(-1)[0] || 1;
+  const span = Math.max(max - min, 10);
+  const xy = profile.map(([d, e]) => `${((d / total) * 300).toFixed(1)},${(76 - ((e - min) / span) * 70).toFixed(1)}`);
+  return (
+    <div className="elevation">
+      <svg
+        viewBox="0 0 300 80"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Độ cao từ ${Math.round(min)} đến ${Math.round(max)} m`}
+      >
+        <polygon points={`0,80 ${xy.join(" ")} 300,80`} className="elevation-area" />
+        <polyline points={xy.join(" ")} className="elevation-line" />
+      </svg>
+      <dl className="stat-row stat-row-text">
+        <div><dt>LEO</dt><dd>{gain} m</dd></div>
+        <div><dt>XUỐNG</dt><dd>{loss} m</dd></div>
+        <div><dt>CAO NHẤT</dt><dd>{Math.round(max)} m</dd></div>
+      </dl>
+      <small className="muted-sm">Độ cao: Copernicus DEM GLO-90 qua Open-Meteo, ô lưới 90 m</small>
     </div>
   );
 }
