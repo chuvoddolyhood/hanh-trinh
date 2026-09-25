@@ -768,6 +768,13 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Dự báo thời tiết chuyến đi */
+.forecast { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.forecast li { display: grid; grid-template-columns: 52px 1fr auto 64px; gap: 10px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.forecast-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.forecast-temp { font-variant-numeric: tabular-nums; font-weight: 600; }
+.forecast .muted-sm { text-align: right; }
+
 /* Kế hoạch chuyến đi */
 .plan-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .plan-list li { display: flex; align-items: center; gap: 6px; }

@@ -3,7 +3,7 @@ import * as api from '../lib/api';
 import Icon from './icons';
 import { bounds, formatDistance, haversine } from '../lib/geo';
 import { formatDate, todayStr } from '../lib/dates';
-import { fetchDailyWeather } from '../lib/weather';
+import { fetchDailyWeather, fetchForecast } from '../lib/weather';
 import { planOrder } from '../lib/plan';
 import { balances, settle, formatVnd } from '../lib/expenses';
 
@@ -348,6 +348,8 @@ function TripDetail({ trip, userId, own, wishlist, onBack, onEdit, onChanged, on
           onShowPlan={onShowPlan}
         />
 
+        <TripForecast trip={trip} stops={stops.length ? stops : items.places} />
+
         <Expenses trip={trip} userId={userId} names={names} />
 
         <section className="stack-sm">
@@ -512,6 +514,62 @@ function Plan({ trip, stops, choices, author, busy, run, reload, onOpenPlace, on
         </div>
       ) : (
         <p className="help">Lưu nơi muốn đến bằng Check-in → "Muốn đến" để thêm vào kế hoạch.</p>
+      )}
+    </section>
+  );
+}
+
+const addDays = (dateStr, n) => {
+  const d = new Date(`${dateStr}T12:00:00`);
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString('en-CA');
+};
+
+// Dự báo thời tiết các ngày của chuyến còn trong 16 ngày tới, tại tâm các điểm dừng (hoặc nơi đã đến)
+function TripForecast({ trip, stops }) {
+  const [days, setDays] = useState(null);
+  const [error, setError] = useState(null);
+  const today = todayStr();
+  const from = trip.start_date > today ? trip.start_date : today;
+  const to = trip.end_date < addDays(today, 15) ? trip.end_date : addDays(today, 15);
+  const inWindow = from <= to;
+  const lat = stops.length ? stops.reduce((s, p) => s + p.lat, 0) / stops.length : null;
+  const lng = stops.length ? stops.reduce((s, p) => s + p.lng, 0) / stops.length : null;
+  const key = lat == null ? '' : `${lat.toFixed(2)},${lng.toFixed(2)},${from},${to}`;
+
+  useEffect(() => {
+    if (!inWindow || !key) return undefined;
+    let alive = true;
+    setError(null);
+    fetchForecast(lat, lng, from, to)
+      .then((d) => alive && setDays(d))
+      .catch(() => alive && setError('Chưa lấy được dự báo. Kiểm tra mạng rồi mở lại chuyến.'));
+    return () => { alive = false; };
+    // key gom lat, lng, from, to (làm tròn để không gọi lại khi toạ độ lệch rất nhỏ)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, inWindow]);
+
+  if (!inWindow) return null;
+  return (
+    <section className="stack-sm">
+      <h2 className="section-title">Dự báo thời tiết</h2>
+      {!key && <p className="help">Thêm nơi vào Kế hoạch để xem dự báo cho chuyến.</p>}
+      {key && !days && !error && <p className="help">Đang lấy dự báo…</p>}
+      {error && <p className="help">{error}</p>}
+      {days && (
+        <>
+          <p className="help">Quanh {stops[0].name}{stops.length > 1 && ` và ${stops.length - 1} nơi khác`}.</p>
+          <ul className="forecast">
+            {days.map((d) => (
+              <li key={d.date}>
+                <span className="mono-label">{formatDate(d.date).slice(0, 5)}</span>
+                <span className="forecast-text">{d.text}</span>
+                <span className="forecast-temp">{Math.round(d.tmin)}–{Math.round(d.tmax)}°</span>
+                <span className="muted-sm">{d.rain != null ? `mưa ${d.rain}%` : ''}</span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );

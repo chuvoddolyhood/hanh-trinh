@@ -50,6 +50,30 @@ export async function fetchDailyWeather(lat, lng, dateStr) {
   };
 }
 
+// Dự báo theo ngày (Open-Meteo chỉ có từ hôm nay tới 15 ngày sau) → [{ date, code, text, tmax, tmin, rain }]
+// rain: khả năng mưa cao nhất trong ngày (%)
+export async function fetchForecast(lat, lng, startDate, endDate) {
+  const params = new URLSearchParams({
+    latitude: lat.toFixed(4),
+    longitude: lng.toFixed(4),
+    start_date: startDate,
+    end_date: endDate,
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+    timezone: 'auto',
+  });
+  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+  if (!res.ok) throw new Error(`Open-Meteo trả lỗi ${res.status}`);
+  const d = (await res.json()).daily;
+  return d.time.map((date, i) => ({
+    date,
+    code: d.weather_code[i],
+    text: WMO_VI[d.weather_code[i]] ?? 'Không rõ',
+    tmax: d.temperature_2m_max[i],
+    tmin: d.temperature_2m_min[i],
+    rain: d.precipitation_probability_max[i],
+  }));
+}
+
 // Thời tiết hiện tại tại một vị trí → { code, temp } hoặc null
 export async function fetchCurrentWeather(lat, lng) {
   const params = new URLSearchParams({
