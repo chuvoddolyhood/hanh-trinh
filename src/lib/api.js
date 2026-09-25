@@ -1,6 +1,8 @@
 import { supabase, PHOTO_BUCKET } from './supabase';
-import { compressPhoto, compressThumb, thumbPath } from './photo';
+import { compressPhoto, compressThumb, thumbPath, toJpegIfHeic } from './photo';
 import { trackDistance } from './geo';
+import { fetchDailyWeather } from './weather';
+import { todayStr } from './dates';
 
 const PROFILE = 'id, username, display_name';
 const PLACE =
@@ -59,9 +61,10 @@ async function uploadPhotos(userId, placeId, photos, onProgress) {
     // Thư mục đầu tiên phải là userId để khớp policy Storage
     const path = `${userId}/${placeId}/${p.id ?? crypto.randomUUID()}.jpg`;
     if (saved.has(path)) continue;
-    // Ảnh gốc và ảnh nhỏ (thẻ, nhật ký dùng ảnh nhỏ cho nhanh)
-    await uploadJpeg(path, await compressPhoto(p.file));
-    await uploadJpeg(thumbPath(path), await compressThumb(p.file));
+    // Ảnh gốc và ảnh nhỏ (thẻ, nhật ký dùng ảnh nhỏ cho nhanh). HEIC chưa chuyển (nhập hàng loạt) → chuyển ở đây
+    const file = await toJpegIfHeic(p.file);
+    await uploadJpeg(path, await compressPhoto(file));
+    await uploadJpeg(thumbPath(path), await compressThumb(file));
     rows.push({
       place_id: placeId,
       storage_path: path,
@@ -92,6 +95,9 @@ export async function updatePlace({ userId, id, photos = [], removed = [], ...fi
   await uploadPhotos(userId, id, photos, onProgress);
   return place;
 }
+
+// Thêm ảnh vào địa điểm đã có (nhập ảnh hàng loạt trùng nơi cũ)
+export const addPhotos = (userId, placeId, photos, onProgress) => uploadPhotos(userId, placeId, photos, onProgress);
 
 export async function deletePlace(place) {
   const paths = (place.photos ?? []).map((p) => p.storage_path);
@@ -196,9 +202,12 @@ export async function getSharedTrip(token) {
   return unwrap(await supabase.rpc('shared_trip', { p_token: token }));
 }
 
-// Nơi muốn đến → đã đến hôm nay (check-in một chạm từ kế hoạch); giữ trip_id để vẫn thuộc chuyến
-export async function markVisited(id, visitedAt, weather) {
-  unwrap(await supabase.from('places').update({ kind: 'visited', visited_at: visitedAt, weather }).eq('id', id));
+// Nơi muốn đến → đã đến hôm nay (check-in một chạm); giữ trip_id để vẫn thuộc chuyến.
+// Thời tiết là thông tin phụ: lỗi mạng thì bỏ qua
+export async function markVisited(place) {
+  const today = todayStr();
+  const weather = await fetchDailyWeather(place.lat, place.lng, today).catch(() => null);
+  unwrap(await supabase.from('places').update({ kind: 'visited', visited_at: today, weather }).eq('id', place.id));
 }
 
 // --------------------------- Chi phí chuyến đi ---------------------------
@@ -217,8 +226,25 @@ export async function addExpense(fields) {
   unwrap(await supabase.from('trip_expenses').insert(fields));
 }
 
+export async function updateExpense(id, fields) {
+  unwrap(await supabase.from('trip_expenses').update(fields).eq('id', id));
+}
+
 export async function deleteExpense(id) {
   unwrap(await supabase.from('trip_expenses').delete().eq('id', id));
+}
+
+// Nghe thay đổi chi phí của chuyến (Realtime). DELETE không lọc được theo trip_id → nhận của mọi chuyến,
+// nơi gọi chỉ việc tải lại. Trả về hàm huỷ.
+export function subscribeExpenses(tripId, onChange) {
+  const filter = `trip_id=eq.${tripId}`;
+  const channel = supabase
+    .channel(`expenses-${tripId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trip_expenses', filter }, onChange)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trip_expenses', filter }, onChange)
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'trip_expenses' }, onChange)
+    .subscribe();
+  return () => supabase.removeChannel(channel);
 }
 
 // ----------------------------- Vùng riêng tư -----------------------------
@@ -250,6 +276,20 @@ export async function updateProfile(userId, fields) {
   if (error?.code === '23505') throw new Error('Username này đã có người dùng.');
   if (error?.code === '23514') throw new Error('Username chỉ gồm chữ thường không dấu, số, dấu chấm, gạch dưới; 3–30 ký tự.');
   return unwrap({ data, error });
+}
+
+// Cài đặt lưu trên hồ sơ: { leaderboard, walk_reminder, goal_km }
+export async function getSettings(userId) {
+  return unwrap(await supabase.from('profiles').select('leaderboard, walk_reminder, goal_km').eq('id', userId).single());
+}
+
+export async function updateSettings(userId, fields) {
+  unwrap(await supabase.from('profiles').update(fields).eq('id', userId));
+}
+
+// Bảng xếp hạng: mình và bạn bè cùng tham gia (rỗng nếu mình chưa tham gia). year null = mọi năm
+export async function getLeaderboard(year) {
+  return unwrap(await supabase.rpc('friend_leaderboard', { p_year: year }));
 }
 
 // Đổi link mời: link cũ không dùng được nữa

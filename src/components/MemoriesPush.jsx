@@ -9,15 +9,41 @@ function keyBytes(base64url) {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
 
+// Server chỉ nhận 0,5–100 km (constraint profiles_goal_km_check)
+const clampGoal = (km) => Math.min(100, Math.max(0.5, km));
+
 const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
-// Tab Tôi: bật/tắt thông báo "Ngày này năm trước" (Web Push, gửi mỗi sáng)
-export default function MemoriesPush() {
+// Tab Tôi: bật/tắt thông báo (Web Push) trên máy này: "Ngày này năm trước" mỗi sáng, và tuỳ chọn
+// nhắc mục tiêu đi bộ lúc 20:00 (lưu ở hồ sơ, kèm goalKm để server so với quãng đường hôm nay)
+export default function MemoriesPush({ userId, goalKm }) {
   const [sub, setSub] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  const [walkOn, setWalkOn] = useState(false);
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && Boolean(VAPID_KEY);
+
+  useEffect(() => {
+    api.getSettings(userId).then((s) => setWalkOn(s.walk_reminder)).catch(() => {});
+  }, [userId]);
+
+  // Đổi mục tiêu ở tab Tôi khi đang bật nhắc → cập nhật lên server (đợi gõ xong)
+  useEffect(() => {
+    if (!walkOn) return undefined;
+    const id = setTimeout(() => api.updateSettings(userId, { goal_km: clampGoal(goalKm) }).catch(() => {}), 800);
+    return () => clearTimeout(id);
+  }, [walkOn, goalKm, userId]);
+
+  async function toggleWalk() {
+    setMessage(null);
+    try {
+      await api.updateSettings(userId, { walk_reminder: !walkOn, goal_km: clampGoal(goalKm) });
+      setWalkOn(!walkOn);
+    } catch (e) {
+      setMessage(e.message);
+    }
+  }
 
   useEffect(() => {
     if (!supported) return;
@@ -39,7 +65,7 @@ export default function MemoriesPush() {
       const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_KEY) });
       await api.savePushSubscription(s);
       setSub(s);
-      setMessage('Đã bật. Mỗi sáng có nơi bạn từng đến vào ngày này, app sẽ nhắc.');
+      setMessage('Đã bật thông báo trên máy này.');
     } catch (e) {
       setMessage(e.message);
     } finally {
@@ -61,18 +87,23 @@ export default function MemoriesPush() {
     }
   }
 
-  let help = 'Thông báo mỗi sáng khi có nơi bạn từng đến vào đúng ngày này ở các năm trước.';
+  let help = 'Mỗi sáng nhắc nơi bạn từng đến vào đúng ngày này ở các năm trước. Có thể bật thêm nhắc đi bộ buổi tối.';
   if (!VAPID_KEY) help = 'Chưa cấu hình VITE_VAPID_PUBLIC_KEY (xem README).';
   else if (isIos && !isStandalone) help = 'Trên iPhone, thêm app vào màn hình chính trước (Chia sẻ → Thêm vào MH chính), rồi mở app từ đó để bật.';
   else if (!supported) help = 'Trình duyệt này không hỗ trợ thông báo đẩy.';
 
   return (
     <section className="stack-sm">
-      <h2 className="section-title">Nhắc "Ngày này năm trước"</h2>
+      <h2 className="section-title">Thông báo</h2>
       <p className="help">{help}</p>
       {supported && !(isIos && !isStandalone) && (
         <button type="button" className="btn-pill btn-outline" onClick={sub ? disable : enable} disabled={busy}>
           {sub ? 'Tắt thông báo' : 'Bật thông báo'}
+        </button>
+      )}
+      {sub && (
+        <button type="button" className="chip" aria-pressed={walkOn} onClick={toggleWalk}>
+          Nhắc lúc 20:00 nếu chưa đi đủ {String(goalKm).replace('.', ',')} km
         </button>
       )}
       {message && <p className="notice">{message}</p>}

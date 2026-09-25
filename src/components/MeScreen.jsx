@@ -12,6 +12,8 @@ import { trackElevation } from "../lib/elevation";
 import Icon from "./icons";
 import FriendsSection from "./FriendsSection";
 import TimelineImport from "./TimelineImport";
+import PhotoImport from "./PhotoImport";
+import Leaderboard from "./Leaderboard";
 import MemoriesPush from "./MemoriesPush";
 
 const THEMES = [
@@ -37,6 +39,7 @@ export default function MeScreen({
   onThemeChange,
   goalKm,
   onGoalChange,
+  streak,
   provinceSet,
   onProvinceSetChange,
   defaultVisibility,
@@ -147,6 +150,8 @@ export default function MeScreen({
           refreshKey={friendsRefresh}
         />
 
+        <Leaderboard userId={userId} />
+
         <section className="stack-sm">
           <h2 className="section-title">Giao diện</h2>
           <div className="chips">
@@ -212,6 +217,11 @@ export default function MeScreen({
             }
           />
         </label>
+        <p className="help">
+          {streak > 0
+            ? `Chuỗi hiện tại: ${streak} ngày liên tiếp đạt mục tiêu.`
+            : "Đi đủ mục tiêu mỗi ngày để bắt đầu chuỗi."}
+        </p>
 
         <form className="stack-sm" onSubmit={savePassword}>
           <label className="field">
@@ -286,7 +296,7 @@ export default function MeScreen({
           </section>
         )}
 
-        <MemoriesPush />
+        <MemoriesPush userId={userId} goalKm={goalKm} />
 
         <PrivacyZones />
 
@@ -362,6 +372,14 @@ export default function MeScreen({
           </label>
           {message && <p className="notice">{message}</p>}
         </section>
+
+        <PhotoImport
+          userId={userId}
+          places={places}
+          tracks={tracks}
+          defaultVisibility={defaultVisibility}
+          onChanged={onChanged}
+        />
 
         <TimelineImport places={places} onChanged={onChanged} />
 

@@ -3,9 +3,9 @@ import * as api from '../lib/api';
 import Icon from './icons';
 import Polaroid from './Polaroid';
 import { usePhotoUrls } from '../hooks/usePhotoUrls';
-import { formatDateLong, toDateStr, todayStr } from '../lib/dates';
+import { formatDateLong, toDateStr } from '../lib/dates';
 import { formatDistance } from '../lib/geo';
-import { fetchDailyWeather, weatherKind, weatherWord } from '../lib/weather';
+import { weatherKind, weatherWord } from '../lib/weather';
 import { moodLabel } from './moods';
 import PlaceSocial from './PlaceSocial';
 
@@ -21,13 +21,11 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
   const thumbs = usePhotoUrls(paths, { thumb: true }); // Hiện trong khung polaroid
   const urls = usePhotoUrls(paths); // Ảnh gốc khi bấm mở
 
-  // Nơi muốn đến → đã đến hôm nay, một chạm (thời tiết lấy theo hôm nay; lỗi mạng thì bỏ qua thời tiết)
+  // Nơi muốn đến → đã đến hôm nay, một chạm
   async function markVisited() {
     setDeleting(true);
     try {
-      const today = todayStr();
-      const weather = await fetchDailyWeather(place.lat, place.lng, today).catch(() => null);
-      await api.markVisited(place.id, today, weather);
+      await api.markVisited(place);
       await onChanged();
     } catch (e) {
       setError(e.message);
@@ -130,14 +128,22 @@ export default function PlaceDetail({ place, tracks, userId, owner = null, onBac
             <p className="notice" role="status">
               {pending.error
                 ? `Chưa đồng bộ được: ${pending.error}`
-                : `Chưa đồng bộ: lưu trên máy lúc mất mạng, sẽ tự gửi khi có mạng${pending.photos ? ` (kèm ${pending.photos} ảnh)` : ''}.`}
+                : `${pending.kind === 'edit' ? 'Thay đổi chưa đồng bộ' : 'Chưa đồng bộ'}: lưu trên máy lúc mất mạng, sẽ tự gửi khi có mạng${pending.photos ? ` (kèm ${pending.photos} ảnh mới)` : ''}.`}
             </p>
+            {pending.kind === 'edit' && (
+              <button type="button" className="btn-pill btn-outline" onClick={onEdit}>Sửa tiếp</button>
+            )}
             <button
               type="button"
               className="btn-link danger"
-              onClick={() => window.confirm(`Bỏ check-in "${place.name}" chưa đồng bộ? Không thể hoàn tác.`) && onDiscardPending()}
+              onClick={() =>
+                window.confirm(
+                  pending.kind === 'edit'
+                    ? `Bỏ thay đổi chưa đồng bộ của "${place.name}"? Địa điểm giữ nguyên như trước khi sửa.`
+                    : `Bỏ check-in "${place.name}" chưa đồng bộ? Không thể hoàn tác.`,
+                ) && onDiscardPending()}
             >
-              Bỏ check-in này
+              {pending.kind === 'edit' ? 'Bỏ thay đổi này' : 'Bỏ check-in này'}
             </button>
           </>
         )}

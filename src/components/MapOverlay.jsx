@@ -9,6 +9,7 @@ import { placeSummary } from "./moods";
 // Các thành phần nổi trên màn hình Bản đồ: tìm kiếm, chip thời tiết/thống kê, nút Check-in, thẻ xem nhanh.
 // friendName: đang xem bản đồ của bạn → thay tìm kiếm bằng thanh "Bản đồ của …", ẩn nút Check-in
 // planName: đang xem kế hoạch chuyến đi → thay tìm kiếm bằng thanh "Kế hoạch: …"
+// nearby: { place, distance } nơi muốn đến gần vị trí hiện tại → thẻ nhắc (khi không có thẻ xem nhanh)
 export default function MapOverlay({
   query,
   onQueryChange,
@@ -23,6 +24,9 @@ export default function MapOverlay({
   onCloseFriend,
   planName,
   onClosePlan,
+  nearby,
+  onNearbyVisit,
+  onNearbyDismiss,
   selected,
   onOpen,
   onCheckin,
@@ -108,12 +112,41 @@ export default function MapOverlay({
       {!friendName && (
         <button
           type="button"
-          className={`checkin-fab${selected ? " has-card" : ""}`}
+          className={`checkin-fab${selected || nearby ? " has-card" : ""}`}
           onClick={onCheckin}
         >
           <Icon name="plus" size={18} strokeWidth={2.2} />
           {"Check-in"}
         </button>
+      )}
+
+      {!selected && nearby && (
+        <div className="quick-card nearby-card" role="status">
+          <span className="quick-card-text">
+            <span className="mono-label">
+              GẦN BẠN, {formatDistance(nearby.distance).toUpperCase()}
+            </span>
+            <button
+              type="button"
+              className="quick-card-name nearby-name"
+              onClick={() => onOpen(nearby.place.id)}
+            >
+              {nearby.place.name}
+            </button>
+            <span className="muted-sm">Nơi bạn muốn đến</span>
+          </span>
+          <button type="button" className="chip" onClick={onNearbyVisit}>
+            Đã đến
+          </button>
+          <button
+            type="button"
+            className="round-btn plain"
+            onClick={onNearbyDismiss}
+            aria-label="Ẩn nhắc này"
+          >
+            <Icon name="close" size={18} />
+          </button>
+        </div>
       )}
 
       {selected && (

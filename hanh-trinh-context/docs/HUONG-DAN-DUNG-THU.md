@@ -62,10 +62,12 @@ App giữ màn hình sáng khi ghi. Lỡ tải lại trang thì lộ trình chư
    - **Xem lại dạng story**: phát lại chuyến đi trên bản đồ, từng nơi một.
    - **Chia sẻ link**: chọn mức **Riêng tư**, **Có link** hoặc **Công khai**, rồi gửi link qua Zalo, Messenger. Người nhận xem được mà không cần tài khoản, link có ảnh xem trước.
    - **Tạo link mới** để link cũ hết hiệu lực.
+   - **Dự báo thời tiết**: chuyến trong 16 ngày tới hiện dự báo từng ngày quanh các điểm dừng.
+   - **Sổ tay chuyến đi (in, PDF)**: trang gọn gồm nơi, ảnh, ghi chú, chi phí; bấm **In / lưu PDF**.
    - **Kế hoạch**: thêm nơi trong danh sách muốn đến vào chuyến. App tự sắp thứ tự đi theo đường ngắn nhất, **Xem kế hoạch trên bản đồ** vẽ đường nét đứt có đánh số. Đến nơi thì bấm **Đã đến**.
-   - **Chi phí**: **Thêm khoản chi**, chọn người trả và những người chia. App tự tính ai trả ai bao nhiêu.
+   - **Chi phí**: **Thêm khoản chi**, chọn người trả và những người chia. App tự tính ai trả ai bao nhiêu. Chạm vào một khoản để sửa; khoản chi của cả nhóm cập nhật ngay không cần tải lại.
 
-Nơi muốn đến bất kỳ cũng có nút **Đã đến hôm nay** ở trang chi tiết.
+Nơi muốn đến bất kỳ cũng có nút **Đã đến hôm nay** ở trang chi tiết. Khi mở app ở gần (dưới 500 m) một nơi muốn đến, bản đồ hiện thẻ nhắc kèm nút **Đã đến**.
 
 **Vùng riêng tư** (tab **Tôi**): đặt vùng quanh nhà, nơi làm việc. Khi chia sẻ, nơi và đoạn lộ trình trong vùng này bị ẩn.
 
@@ -91,6 +93,9 @@ Nơi muốn đến bất kỳ cũng có nút **Đã đến hôm nay** ở trang 
 - **Nhắc "Ngày này năm trước"**: bấm **Bật thông báo** để nhận thông báo mỗi sáng.
 - **Lộ trình đã lưu**: chạm để xem trên bản đồ, bấm × để xoá.
 - **Tổng kết năm**: chọn một năm để xem lại dạng story (số nơi, tỉnh mới, km đi bộ, tháng đi nhiều nhất), rồi xem lại từng nơi hoặc tạo poster năm.
+- **Nhập ảnh từ album**: chọn nhiều ảnh cũ, app gom theo nơi và ngày chụp thành các check-in; xem lại, sửa tên, bỏ chọn rồi lưu.
+- **Bảng xếp hạng bạn bè**: bấm **Tham gia** để so số nơi, km đi bộ, số ngày đi với bạn bè cũng tham gia (chỉ so con số, không lộ vị trí).
+- **Thông báo**: ngoài "Ngày này năm trước", có thể bật nhắc lúc 20:00 nếu hôm nay chưa đi đủ mục tiêu. Ô mục tiêu hiện chuỗi ngày liên tiếp đạt mục tiêu.
 - **Huy hiệu**: các cột mốc như 10 nơi, ba miền, 100 km đi bộ; chưa đạt thì hiện tiến độ.
 - **Độ cao lộ trình**: trong **Lộ trình đã lưu**, bấm mũi tên cạnh lộ trình để xem biểu đồ lên xuống và tổng độ cao đã leo.
 - **Sao lưu dữ liệu**: tải địa điểm (GeoJSON) và lộ trình (GPX) về máy. Chưa gồm ảnh.
@@ -114,13 +119,18 @@ Nơi muốn đến bất kỳ cũng có nút **Đã đến hôm nay** ở trang 
 - [ ] Xem huy hiệu và biểu đồ độ cao của một lộ trình
 - [ ] Thêm 3 nơi muốn đến vào một chuyến, xem kế hoạch trên bản đồ, bấm **Đã đến** một nơi
 - [ ] Chuyến nhóm: mỗi người thêm một khoản chi, xem phần ai trả ai
+- [ ] Nhập 20–50 ảnh cũ có vị trí từ album, kiểm tra các nơi được gom
+- [ ] Nhật ký → **Ảnh**: xem thư viện ảnh, lọc theo năm
+- [ ] Check-in: bấm micro ở ô Ghi chú, nói một câu tiếng Việt
+- [ ] In sổ tay một chuyến ra PDF
+- [ ] Hai người bạn cùng tham gia bảng xếp hạng
 - [ ] Tải bản sao lưu GPX và mở thử bằng app bản đồ khác
 
 ## 9. Lưu ý đã biết
 
 - **Ghi lộ trình khi khoá màn hình**: trình duyệt (nhất là iPhone) có thể ngừng lấy GPS. Hãy để màn hình sáng; đi đường dài nên ghi bằng app khác rồi nhập GPX.
 - **Thông báo trên iPhone** chỉ chạy khi đã thêm app vào màn hình chính (iOS 16.4 trở lên).
-- **Khi mất mạng**: check-in mới và lộ trình được lưu trên máy (hiện nhãn "Chờ đồng bộ"), tự gửi khi có mạng. Không tìm được địa điểm theo tên và chưa có thời tiết (tự điền khi đồng bộ). Sửa check-in cũ cần có mạng. Đăng xuất khi còn mục chờ sẽ xoá chúng.
+- **Khi mất mạng**: check-in mới, bản sửa check-in và lộ trình được lưu trên máy (hiện nhãn "Chờ đồng bộ"), tự gửi khi có mạng. Không tìm được địa điểm theo tên và chưa có thời tiết (tự điền khi đồng bộ). Xoá địa điểm vẫn cần có mạng. Đăng xuất khi còn mục chờ sẽ xoá chúng.
 - Lần đầu mở sau nhiều ngày không ai dùng, app có thể tải chậm hoặc lỗi; thử lại sau 1–2 phút.
 
 ## Góp ý

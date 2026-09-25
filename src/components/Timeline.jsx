@@ -6,6 +6,7 @@ import { matchPlace } from "../lib/text";
 import { seasonLabel, todayStr } from "../lib/dates";
 import { formatDistance } from "../lib/geo";
 import { placeSummary } from "./moods";
+import PhotoLibrary from "./PhotoLibrary";
 
 const KINDS = [
   { id: "all", label: "Tất cả" },
@@ -27,6 +28,7 @@ export default function Timeline({
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [view, setView] = useState("list"); // 'list' | 'photos'
 
   const visitedCount = useMemo(
     () => places.filter((p) => p.kind === "visited").length,
@@ -104,95 +106,110 @@ export default function Timeline({
 
         <Memories places={places} onSelect={onSelect} />
 
-        <div className="chips">
-          {KINDS.map((k) => (
-            <button
-              type="button"
-              key={k.id}
-              className="chip"
-              aria-pressed={kind === k.id}
-              onClick={() => setKind(k.id)}
-            >
-              {k.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="chip chip-icon"
-            aria-label="Tìm kiếm"
-            aria-expanded={Boolean(showSearch)}
-            onClick={() => setSearchOpen(!showSearch)}
-          >
-            <Icon name="search" size={16} strokeWidth={2} />
+        <div className="segmented journal-view" role="radiogroup" aria-label="Cách xem">
+          <button type="button" role="radio" aria-checked={view === "list"} onClick={() => setView("list")}>
+            Dòng thời gian
+          </button>
+          <button type="button" role="radio" aria-checked={view === "photos"} onClick={() => setView("photos")}>
+            Ảnh
           </button>
         </div>
 
-        {showSearch && (
-          <div className="journal-search">
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm tên, ghi chú hoặc #tag"
-              aria-label="Tìm trong nhật ký"
-            />
-            <div className="date-range">
-              <label>
-                <span>Từ</span>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                />
-              </label>
-              <label>
-                <span>Đến</span>
-                <input
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                />
-              </label>
-            </div>
-            {(query || from || to) && (
+        {view === "photos" && <PhotoLibrary places={places} onSelect={onSelect} />}
+
+        {view === "list" && (
+          <>
+            <div className="chips">
+              {KINDS.map((k) => (
+                <button
+                  type="button"
+                  key={k.id}
+                  className="chip"
+                  aria-pressed={kind === k.id}
+                  onClick={() => setKind(k.id)}
+                >
+                  {k.label}
+                </button>
+              ))}
               <button
                 type="button"
-                className="btn-link"
-                onClick={() => {
-                  setQuery("");
-                  setFrom("");
-                  setTo("");
-                }}
+                className="chip chip-icon"
+                aria-label="Tìm kiếm"
+                aria-expanded={Boolean(showSearch)}
+                onClick={() => setSearchOpen(!showSearch)}
               >
-                Xoá bộ lọc
+                <Icon name="search" size={16} strokeWidth={2} />
               </button>
+            </div>
+
+            {showSearch && (
+              <div className="journal-search">
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Tìm tên, ghi chú hoặc #tag"
+                  aria-label="Tìm trong nhật ký"
+                />
+                <div className="date-range">
+                  <label>
+                    <span>Từ</span>
+                    <input
+                      type="date"
+                      value={from}
+                      onChange={(e) => setFrom(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>Đến</span>
+                    <input
+                      type="date"
+                      value={to}
+                      onChange={(e) => setTo(e.target.value)}
+                    />
+                  </label>
+                </div>
+                {(query || from || to) && (
+                  <button
+                    type="button"
+                    className="btn-link"
+                    onClick={() => {
+                      setQuery("");
+                      setFrom("");
+                      setTo("");
+                    }}
+                  >
+                    Xoá bộ lọc
+                  </button>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {places.length === 0 && (
-          <p className="empty">
-            Chưa có địa điểm nào. Mở Bản đồ, bấm Check-in rồi chạm lên bản đồ để
-            ghim nơi đầu tiên.
-          </p>
-        )}
-        {places.length > 0 && filtered.length === 0 && (
-          <p className="empty">Không có địa điểm khớp bộ lọc.</p>
-        )}
+            {places.length === 0 && (
+              <p className="empty">
+                Chưa có địa điểm nào. Mở Bản đồ, bấm Check-in rồi chạm lên bản đồ để
+                ghim nơi đầu tiên, hoặc nhập ảnh cũ ở tab Tôi (Nhập ảnh từ album).
+              </p>
+            )}
+            {places.length > 0 && filtered.length === 0 && (
+              <p className="empty">Không có địa điểm khớp bộ lọc.</p>
+            )}
 
-        {groups.map(([key, items]) => (
-          <section key={key} className="month">
-            <h2 className="month-title">
-              {key === "none"
-                ? "Chưa đặt ngày"
-                : `Tháng ${Number(key.slice(5))}`}
-              {key !== "none" && (
-                <span className="mono-label">{key.slice(0, 4)}</span>
-              )}
-            </h2>
-            <TimelineList items={items} urls={urls} onSelect={onSelect} />
-          </section>
-        ))}
+            {groups.map(([key, items]) => (
+              <section key={key} className="month">
+                <h2 className="month-title">
+                  {key === "none"
+                    ? "Chưa đặt ngày"
+                    : `Tháng ${Number(key.slice(5))}`}
+                  {key !== "none" && (
+                    <span className="mono-label">{key.slice(0, 4)}</span>
+                  )}
+                </h2>
+                <TimelineList items={items} urls={urls} onSelect={onSelect} />
+              </section>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );

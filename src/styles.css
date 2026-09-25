@@ -400,6 +400,8 @@ input::placeholder, textarea::placeholder { color: #8A7F73; }
   color: var(--muted);
   text-align: left;
 }
+.nearby-card { height: auto; min-height: 96px; gap: 8px; }
+.nearby-name { padding: 0; border: 0; background: none; text-align: left; }
 .quick-card-text { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
 .quick-card-name {
   overflow: hidden;
@@ -768,6 +770,65 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Bảng xếp hạng bạn bè */
+.leaderboard { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.leaderboard li { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); }
+.leaderboard li.is-me .track-name { color: var(--accent-text); }
+.leaderboard-rank { width: 24px; font: 400 22px var(--serif); text-align: center; }
+.leaderboard .track-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.leaderboard-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Nhập ảnh hàng loạt */
+.import-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.import-list li { display: flex; align-items: center; gap: 10px; }
+.import-list li.is-off { opacity: 0.55; }
+.import-list img { flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: var(--line); }
+.import-body { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.import-list input[type='checkbox'] { flex-shrink: 0; width: 24px; height: 24px; margin: 10px; accent-color: var(--accent); }
+
+/* Sổ tay chuyến đi: lớp phủ trên màn hình, khi in chỉ in phần này (ẩn #root) */
+.book {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  padding: calc(16px + var(--safe-top)) 20px 48px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.book > * { max-width: 680px; margin-left: auto; margin-right: auto; }
+.book-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.book-head h1 { margin: 4px 0; font: 400 36px/1.1 var(--serif); }
+.book-place, .book-section { padding: 16px 0; border-top: 1px solid var(--line); break-inside: avoid; }
+.book-place h2, .book-section h2 { margin: 2px 0 4px; font: 600 20px var(--serif); }
+.book-section h3 { margin: 12px 0 4px; font: 600 15px var(--sans); }
+.book-section ul { margin: 0; padding-left: 20px; }
+.book-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.book-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; }
+.book-foot { margin-top: 24px; text-align: center; }
+@media print {
+  #root, .book-actions { display: none !important; }
+  .book { position: static; overflow: visible; padding: 0; background: #FFFFFF; color: #000000; }
+  .book .muted, .book .muted-sm, .book .mono-label { color: #444444; }
+}
+
+/* Thư viện ảnh (Nhật ký) */
+.journal-view { margin-top: 16px; }
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0; padding: 0; list-style: none; }
+.photo-grid button { display: block; width: 100%; aspect-ratio: 1; padding: 0; border: 0; border-radius: 6px; background: var(--line); overflow: hidden; }
+.photo-grid img, .photo-grid span { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Ghi chú bằng giọng nói */
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.round-btn.is-live { color: var(--route); }
+
+/* Dự báo thời tiết chuyến đi */
+.forecast { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.forecast li { display: grid; grid-template-columns: 52px 1fr auto 64px; gap: 10px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.forecast-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.forecast-temp { font-variant-numeric: tabular-nums; font-weight: 600; }
+.forecast .muted-sm { text-align: right; }
+
 /* Kế hoạch chuyến đi */
 .plan-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .plan-list li { display: flex; align-items: center; gap: 6px; }
@@ -845,6 +906,7 @@ a.btn-dark { color: var(--surface); }
 .elevation-line { fill: none; stroke: var(--route); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .track-list li + li { margin-top: 4px; }
 .track-main { display: flex; flex: 1; flex-direction: column; min-height: 44px; padding: 8px 0 8px 14px; border: 0; background: none; text-align: left; }
+.track-main:disabled { opacity: 1; color: inherit; } /* Khoản chi của người khác: chỉ xem, chữ vẫn rõ */
 .track-name { font-weight: 600; }
 /* Ô tick: cả dòng là vùng chạm ≥ 44px */
 .check { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; cursor: pointer; }

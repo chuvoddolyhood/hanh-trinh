@@ -3,9 +3,10 @@ import * as api from '../lib/api';
 import Icon from './icons';
 import { bounds, formatDistance, haversine } from '../lib/geo';
 import { formatDate, todayStr } from '../lib/dates';
-import { fetchDailyWeather } from '../lib/weather';
+import { fetchForecast } from '../lib/weather';
 import { planOrder } from '../lib/plan';
 import { balances, settle, formatVnd } from '../lib/expenses';
+import TripBook from './TripBook';
 
 const VISIBILITY = [
   { id: 'private', label: 'Riêng tư' },
@@ -76,7 +77,7 @@ export default function TripsScreen({ userId, places, tracks, onOpenPlace, onSho
         trip={open}
         userId={userId}
         own={tripItems(open, places, tracks)}
-        wishlist={places.filter((p) => p.kind === 'wishlist' && !p.pending)}
+        wishlist={places.filter((p) => p.kind === 'wishlist' && p.pending?.kind !== 'create')}
         onBack={() => setOpenId(null)}
         onEdit={() => setEditing(open)}
         // Có trip mới (đổi chia sẻ) → thay tại chỗ; không có → tải lại cả danh sách và dữ liệu của mình
@@ -149,6 +150,7 @@ function TripDetail({ trip, userId, own, wishlist, onBack, onEdit, onChanged, on
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [group, setGroup] = useState({ places: [], tracks: [] }); // Mục mọi người đã chọn cho nhóm
+  const [bookOpen, setBookOpen] = useState(false); // Sổ tay chuyến đi (in, PDF)
   const isOwner = trip.user_id === userId;
   const grouped = isGroup(trip, userId);
 
@@ -297,6 +299,22 @@ function TripDetail({ trip, userId, own, wishlist, onBack, onEdit, onChanged, on
             Tạo poster
           </button>
         )}
+        {(items.places.length > 0 || items.tracks.length > 0) && (
+          <button type="button" className="btn-pill btn-outline" onClick={() => setBookOpen(true)}>
+            Sổ tay chuyến đi (in, PDF)
+          </button>
+        )}
+        {bookOpen && (
+          <TripBook
+            trip={trip}
+            places={items.places}
+            tracks={items.tracks}
+            km={km}
+            days={dayCount(trip)}
+            nameOf={(id) => names[id] ?? 'Người đã rời chuyến'}
+            onClose={() => setBookOpen(false)}
+          />
+        )}
         {message && <p className="notice">{message}</p>}
 
         {isOwner && (
@@ -347,6 +365,8 @@ function TripDetail({ trip, userId, own, wishlist, onBack, onEdit, onChanged, on
           onOpenPlace={onOpenPlace}
           onShowPlan={onShowPlan}
         />
+
+        <TripForecast trip={trip} stops={stops.length ? stops : items.places} />
 
         <Expenses trip={trip} userId={userId} names={names} />
 
@@ -434,9 +454,7 @@ function Plan({ trip, stops, choices, author, busy, run, reload, onOpenPlace, on
 
   function markVisited(p) {
     run(async () => {
-      const today = todayStr();
-      const weather = await fetchDailyWeather(p.lat, p.lng, today).catch(() => null);
-      await api.markVisited(p.id, today, weather);
+      await api.markVisited(p);
       await reload();
     }, `Đã check-in ${p.name}.`);
   }
@@ -517,6 +535,62 @@ function Plan({ trip, stops, choices, author, busy, run, reload, onOpenPlace, on
   );
 }
 
+const addDays = (dateStr, n) => {
+  const d = new Date(`${dateStr}T12:00:00`);
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString('en-CA');
+};
+
+// Dự báo thời tiết các ngày của chuyến còn trong 16 ngày tới, tại tâm các điểm dừng (hoặc nơi đã đến)
+function TripForecast({ trip, stops }) {
+  const [days, setDays] = useState(null);
+  const [error, setError] = useState(null);
+  const today = todayStr();
+  const from = trip.start_date > today ? trip.start_date : today;
+  const to = trip.end_date < addDays(today, 15) ? trip.end_date : addDays(today, 15);
+  const inWindow = from <= to;
+  const lat = stops.length ? stops.reduce((s, p) => s + p.lat, 0) / stops.length : null;
+  const lng = stops.length ? stops.reduce((s, p) => s + p.lng, 0) / stops.length : null;
+  const key = lat == null ? '' : `${lat.toFixed(2)},${lng.toFixed(2)},${from},${to}`;
+
+  useEffect(() => {
+    if (!inWindow || !key) return undefined;
+    let alive = true;
+    setError(null);
+    fetchForecast(lat, lng, from, to)
+      .then((d) => alive && setDays(d))
+      .catch(() => alive && setError('Chưa lấy được dự báo. Kiểm tra mạng rồi mở lại chuyến.'));
+    return () => { alive = false; };
+    // key gom lat, lng, from, to (làm tròn để không gọi lại khi toạ độ lệch rất nhỏ)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, inWindow]);
+
+  if (!inWindow) return null;
+  return (
+    <section className="stack-sm">
+      <h2 className="section-title">Dự báo thời tiết</h2>
+      {!key && <p className="help">Thêm nơi vào Kế hoạch để xem dự báo cho chuyến.</p>}
+      {key && !days && !error && <p className="help">Đang lấy dự báo…</p>}
+      {error && <p className="help">{error}</p>}
+      {days && (
+        <>
+          <p className="help">Quanh {stops[0].name}{stops.length > 1 && ` và ${stops.length - 1} nơi khác`}.</p>
+          <ul className="forecast">
+            {days.map((d) => (
+              <li key={d.date}>
+                <span className="mono-label">{formatDate(d.date).slice(0, 5)}</span>
+                <span className="forecast-text">{d.text}</span>
+                <span className="forecast-temp">{Math.round(d.tmin)}–{Math.round(d.tmax)}°</span>
+                <span className="muted-sm">{d.rain != null ? `mưa ${d.rain}%` : ''}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 // Chi phí: ai trả, chia cho ai; cuối cùng tính ai trả ai. Người trong chuyến = chủ + thành viên.
 function Expenses({ trip, userId, names }) {
   const people = [trip.owner, ...trip.members.map((m) => m.profile)].filter(Boolean);
@@ -524,7 +598,7 @@ function Expenses({ trip, userId, names }) {
   const [list, setList] = useState([]);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(null); // null | 'new' | khoản đang sửa
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState(userId);
@@ -534,7 +608,19 @@ function Expenses({ trip, userId, names }) {
     () => api.listExpenses(trip.id).then(setList).catch((e) => setError(e.message)),
     [trip.id],
   );
-  useEffect(() => { load(); }, [load]);
+  // Tải lần đầu, rồi tải lại mỗi khi có người trong chuyến thêm, sửa, xoá khoản chi
+  useEffect(() => {
+    load();
+    return api.subscribeExpenses(trip.id, load);
+  }, [trip.id, load]);
+
+  function openForm(e) {
+    setForm(e ?? 'new');
+    setTitle(e?.title ?? '');
+    setAmount(e ? String(e.amount) : '');
+    setPaidBy(e?.paid_by ?? userId);
+    setSplit(e?.split_among ?? null);
+  }
 
   const total = list.reduce((s, e) => s + e.amount, 0);
   const transfers = settle(balances(list));
@@ -558,23 +644,15 @@ function Expenses({ trip, userId, names }) {
     e.preventDefault();
     if (!value || !splitIds.length) return;
     act(async () => {
-      await api.addExpense({
-        trip_id: trip.id,
-        paid_by: paidBy,
-        title: title.trim(),
-        amount: value,
-        spent_on: todayStr(),
-        split_among: splitIds,
-      });
-      setTitle('');
-      setAmount('');
-      setSplit(null);
-      setAdding(false);
+      const fields = { paid_by: paidBy, title: title.trim(), amount: value, split_among: splitIds };
+      if (form === 'new') await api.addExpense({ ...fields, trip_id: trip.id, spent_on: todayStr() });
+      else await api.updateExpense(form.id, fields);
+      setForm(null);
     });
   }
 
   const toggle = (id) => setSplit(splitIds.includes(id) ? splitIds.filter((x) => x !== id) : [...splitIds, id]);
-  const canDelete = (e) => e.created_by === userId || trip.user_id === userId;
+  const canEdit = (e) => e.created_by === userId || trip.user_id === userId;
 
   return (
     <section className="stack-sm">
@@ -604,14 +682,14 @@ function Expenses({ trip, userId, names }) {
         <ul className="track-list expense-list">
           {list.map((e) => (
             <li key={e.id}>
-              <span className="track-main">
+              <button type="button" className="track-main" disabled={!canEdit(e)} onClick={() => openForm(e)}>
                 <span className="track-name">{e.title}</span>
                 <span className="muted-sm">
                   {formatVnd(e.amount)}, {formatDate(e.spent_on)}
                   {people.length > 1 && `, ${nameOf(e.paid_by)} trả, chia ${e.split_among.length} người`}
                 </span>
-              </span>
-              {canDelete(e) && (
+              </button>
+              {canEdit(e) && (
                 <button
                   type="button"
                   className="round-btn plain"
@@ -627,8 +705,9 @@ function Expenses({ trip, userId, names }) {
         </ul>
       )}
 
-      {adding ? (
+      {form ? (
         <form className="stack-sm" onSubmit={submit}>
+          {form !== 'new' && <p className="help">Sửa khoản "{form.title}"</p>}
           <label className="field">
             <span>Khoản chi</span>
             <input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Ăn tối, taxi" />
@@ -670,11 +749,11 @@ function Expenses({ trip, userId, names }) {
             <button type="submit" className="btn-pill btn-dark" disabled={busy || !value || !splitIds.length}>
               {busy ? 'Đang lưu…' : 'Lưu khoản chi'}
             </button>
-            <button type="button" className="btn-pill btn-outline" onClick={() => setAdding(false)}>Huỷ</button>
+            <button type="button" className="btn-pill btn-outline" onClick={() => setForm(null)}>Huỷ</button>
           </div>
         </form>
       ) : (
-        <button type="button" className="btn-pill btn-outline" onClick={() => setAdding(true)}>
+        <button type="button" className="btn-pill btn-outline" onClick={() => openForm(null)}>
           <Icon name="plus" size={18} strokeWidth={2.2} />
           {'Thêm khoản chi'}
         </button>

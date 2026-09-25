@@ -111,7 +111,7 @@ flowchart TD
 | 31 | Trình bày | Replay hành trình dạng story | 3 | Đã xong |
 | 32 | Trình bày | Xuất ảnh, poster bản đồ | 3 | Đã xong |
 | 33 | Tiện ích | Nhắc "ngày này năm trước" (pg_cron + Web Push) | 3 | Đã xong |
-| 34 | Tiện ích | PWA dùng khi mất mạng (xem dữ liệu đã tải; check-in mới và lộ trình ghi được, xem #38; sửa check-in vẫn cần mạng) | 3 | Đã xong |
+| 34 | Tiện ích | PWA dùng khi mất mạng (xem dữ liệu đã tải; check-in mới, sửa check-in và lộ trình ghi được, xem #38) | 3 | Đã xong |
 | 35 | Tiện ích | Nhập dữ liệu từ Google Takeout và Google Maps Timeline | 3 | Đã xong |
 | 36 | Lộ trình | App Capacitor ghi GPS khi chạy nền | 3 | Kế hoạch |
 | 37 | Bản đồ | Heatmap các khu vực đi qua nhiều | 3 | Đã xong |
@@ -124,6 +124,14 @@ flowchart TD
 | 44 | Lộ trình | Độ cao lộ trình: biểu đồ lên xuống, tổng độ cao đã leo (Open-Meteo Elevation API) | 3 | Đã xong |
 | 45 | Chuyến đi | Chi phí chuyến đi: ghi khoản chi, người trả, chia cho ai; tự tính ai trả ai (bảng `trip_expenses`) | 3 | Đã xong |
 | 46 | Chuyến đi | Kế hoạch từ danh sách muốn đến: gắn vào chuyến, tự sắp thứ tự theo đường ngắn, vẽ trên bản đồ, "Đã đến" một chạm | 3 | Đã xong |
+| 47 | Ảnh | Nhập ảnh hàng loạt: gom ảnh theo GPS và ngày thành các check-in, xem trước rồi lưu | 3 | Đã xong |
+| 48 | Chuyến đi | Dự báo thời tiết từng ngày cho chuyến sắp tới (Open-Meteo, tối đa 16 ngày tới) | 3 | Đã xong |
+| 49 | Bản đồ | Nhắc khi đang ở gần nơi muốn đến (dưới 500 m, lúc mở app) | 3 | Đã xong |
+| 50 | Trình bày | Sổ tay chuyến đi: trang in / lưu PDF gồm nơi, ảnh, ghi chú, chi phí | 3 | Đã xong |
+| 51 | Ảnh | Thư viện ảnh dạng lưới trong Nhật ký, lọc theo năm | 3 | Đã xong |
+| 52 | Check-in | Ghi chú bằng giọng nói (Web Speech API, tiếng Việt) | 3 | Đã xong |
+| 53 | Xã hội | Bảng xếp hạng bạn bè (tự chọn tham gia): số nơi, km đi bộ, số ngày đi | 3 | Đã xong |
+| 54 | Tiện ích | Nhắc mục tiêu đi bộ lúc 20:00 và chuỗi ngày đạt mục tiêu (Web Push) | 3 | Đã xong |
 
 ## Rủi ro và giới hạn kỹ thuật
 
