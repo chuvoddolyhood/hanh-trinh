@@ -770,6 +770,12 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Thư viện ảnh (Nhật ký) */
+.journal-view { margin-top: 16px; }
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0; padding: 0; list-style: none; }
+.photo-grid button { display: block; width: 100%; aspect-ratio: 1; padding: 0; border: 0; border-radius: 6px; background: var(--line); overflow: hidden; }
+.photo-grid img, .photo-grid span { display: block; width: 100%; height: 100%; object-fit: cover; }
+
 /* Ghi chú bằng giọng nói */
 .field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .round-btn.is-live { color: var(--route); }
