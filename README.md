@@ -34,7 +34,7 @@ Nhật ký du lịch trên bản đồ: check-in, ảnh có GPS, ghi lộ trình
 
 1. Tạo project miễn phí tại supabase.com.
 2. Vào **SQL Editor**, dán toàn bộ `supabase/schema.sql` và chạy. File chạy lại được nhiều lần; mỗi khi schema đổi, chạy lại toàn bộ.
-   Database đã dựng từ trước: chạy lần lượt các file trong `supabase/migrations/` (theo tên file) thay vì chạy lại toàn bộ; `20260925_anh-nho.sql` cho phép bạn bè và link chia sẻ xem ảnh nhỏ; `20260926_chi-phi-chuyen-di.sql` thêm bảng chi phí chuyến đi; `20260926_sua-chi-phi-realtime.sql` cho sửa khoản chi và cập nhật tức thì.
+   Database đã dựng từ trước: chạy lần lượt các file trong `supabase/migrations/` (theo tên file) thay vì chạy lại toàn bộ; `20260925_anh-nho.sql` cho phép bạn bè và link chia sẻ xem ảnh nhỏ; `20260926_chi-phi-chuyen-di.sql` thêm bảng chi phí chuyến đi; `20260926_sua-chi-phi-realtime.sql` cho sửa khoản chi và cập nhật tức thì; `20260927_xep-hang-nhac-di-bo.sql` cho bảng xếp hạng bạn bè và nhắc đi bộ.
 3. Vào **Authentication → URL Configuration**:
    - Site URL: `http://localhost:5173` (đổi thành domain thật khi deploy)
    - Thêm domain deploy vào Redirect URLs.
@@ -77,6 +77,17 @@ Cần [Supabase CLI](https://supabase.com/docs/guides/cli). Thẻ "Ngày này n�
    $$);
    ```
 5. Trong app: tab Tôi → "Bật thông báo". Trên iPhone phải thêm app vào màn hình chính trước (iOS 16.4 trở lên).
+6. Nhắc mục tiêu đi bộ lúc 20:00 (tuỳ chọn, dùng chung secret ở bước 2): `supabase functions deploy walk-reminder --no-verify-jwt`, rồi thêm lịch (13:00 UTC = 20:00 giờ Việt Nam):
+   ```sql
+   select cron.schedule('hanh-trinh-walk-reminder', '0 13 * * *', $$
+     select net.http_post(
+       url := 'https://<ref>.supabase.co/functions/v1/walk-reminder',
+       headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '<CRON_SECRET>'),
+       body := '{}'::jsonb
+     )
+   $$);
+   ```
+   Người dùng bật ở tab Tôi → Thông báo → "Nhắc lúc 20:00…". Hai function dùng chung `supabase/functions/_shared/push.ts`; sửa file này thì deploy lại cả hai.
 
 ## Lưu ý
 
