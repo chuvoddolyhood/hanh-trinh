@@ -6,6 +6,7 @@ import { formatDate, todayStr } from '../lib/dates';
 import { fetchForecast } from '../lib/weather';
 import { planOrder } from '../lib/plan';
 import { balances, settle, formatVnd } from '../lib/expenses';
+import TripBook from './TripBook';
 
 const VISIBILITY = [
   { id: 'private', label: 'Riêng tư' },
@@ -149,6 +150,7 @@ function TripDetail({ trip, userId, own, wishlist, onBack, onEdit, onChanged, on
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [group, setGroup] = useState({ places: [], tracks: [] }); // Mục mọi người đã chọn cho nhóm
+  const [bookOpen, setBookOpen] = useState(false); // Sổ tay chuyến đi (in, PDF)
   const isOwner = trip.user_id === userId;
   const grouped = isGroup(trip, userId);
 
@@ -296,6 +298,22 @@ function TripDetail({ trip, userId, own, wishlist, onBack, onEdit, onChanged, on
           >
             Tạo poster
           </button>
+        )}
+        {(items.places.length > 0 || items.tracks.length > 0) && (
+          <button type="button" className="btn-pill btn-outline" onClick={() => setBookOpen(true)}>
+            Sổ tay chuyến đi (in, PDF)
+          </button>
+        )}
+        {bookOpen && (
+          <TripBook
+            trip={trip}
+            places={items.places}
+            tracks={items.tracks}
+            km={km}
+            days={dayCount(trip)}
+            nameOf={(id) => names[id] ?? 'Người đã rời chuyến'}
+            onClose={() => setBookOpen(false)}
+          />
         )}
         {message && <p className="notice">{message}</p>}
 

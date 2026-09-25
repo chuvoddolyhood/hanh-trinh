@@ -770,6 +770,32 @@ a.btn-dark { color: var(--surface); }
 .story-end { align-items: flex-start; gap: 12px; }
 .story-end .row { width: 100%; }
 
+/* Sổ tay chuyến đi: lớp phủ trên màn hình, khi in chỉ in phần này (ẩn #root) */
+.book {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  padding: calc(16px + var(--safe-top)) 20px 48px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.book > * { max-width: 680px; margin-left: auto; margin-right: auto; }
+.book-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.book-head h1 { margin: 4px 0; font: 400 36px/1.1 var(--serif); }
+.book-place, .book-section { padding: 16px 0; border-top: 1px solid var(--line); break-inside: avoid; }
+.book-place h2, .book-section h2 { margin: 2px 0 4px; font: 600 20px var(--serif); }
+.book-section h3 { margin: 12px 0 4px; font: 600 15px var(--sans); }
+.book-section ul { margin: 0; padding-left: 20px; }
+.book-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.book-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; }
+.book-foot { margin-top: 24px; text-align: center; }
+@media print {
+  #root, .book-actions { display: none !important; }
+  .book { position: static; overflow: visible; padding: 0; background: #FFFFFF; color: #000000; }
+  .book .muted, .book .muted-sm, .book .mono-label { color: #444444; }
+}
+
 /* Thư viện ảnh (Nhật ký) */
 .journal-view { margin-top: 16px; }
 .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0; padding: 0; list-style: none; }
